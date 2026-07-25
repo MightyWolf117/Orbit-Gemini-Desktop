@@ -6,13 +6,13 @@ const PatchNotesPage = () => {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>Notas del Parche</h1>
-        <p className={styles.subtitle}>Versión actual: 1.1.0</p>
+        <p className={styles.subtitle}>Versión actual: 1.1.1</p>
       </header>
 
       <div className={styles.content}>
         <section className={styles.patchSection}>
           <h2 className={styles.versionTitle}>
-            Versión 1.1.0 - Actualización de Inteligencia y Sistema
+            Versión 1.1.1 - Actualización de Inteligencia y Sistema
           </h2>
           <span className={styles.date}>24 de Julio, 2026</span>
           
