@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar/Sidebar';
 import ChatPage from './pages/ChatPage/ChatPage';
 import SettingsPage from './pages/SettingsPage/SettingsPage';
 import PersonalityPage from './pages/PersonalityPage/PersonalityPage';
+import PatchNotesPage from './pages/PatchNotesPage/PatchNotesPage';
 import styles from './App.module.scss';
 import useSettingsStore from './store/settingsStore';
 import { useEffect, useState } from 'react';
@@ -28,6 +29,7 @@ const ProtectedRoutes = () => {
     <Routes>
       <Route path="/" element={<ChatPage />} />
       <Route path="/personalities" element={<PersonalityPage />} />
+      <Route path="/patch-notes" element={<PatchNotesPage />} />
       <Route path="/settings" element={<SettingsPage />} />
     </Routes>
   );

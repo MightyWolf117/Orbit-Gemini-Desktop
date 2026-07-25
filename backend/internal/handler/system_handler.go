@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
+	"orbit-backend/internal/service"
 )
 
 type SystemHandler struct {
@@ -84,3 +85,10 @@ func (h *SystemHandler) Models(c *gin.Context) {
 		"models": availableModels,
 	})
 }
+
+// Runtimes devuelve un mapa de los lenguajes/binarios instalados
+func (h *SystemHandler) Runtimes(c *gin.Context) {
+	runtimesMap := service.GetInstalledRuntimesMap()
+	c.JSON(http.StatusOK, runtimesMap)
+}
+

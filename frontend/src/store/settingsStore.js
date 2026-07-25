@@ -24,6 +24,7 @@ const useSettingsStore = create(
 
       // Ajustes de API
       googleApiKey: null,
+      enableSystemIntegration: false,
 
       // Ajustes de Iconos
       userIconPath: null,
@@ -40,6 +41,7 @@ const useSettingsStore = create(
       setResolvedBasePath: (path) => set({ resolvedBasePath: path }),
       setEnableWsl: (enabled) => set({ enableWsl: enabled }),
       setGoogleApiKey: (key) => set({ googleApiKey: key }),
+      setEnableSystemIntegration: (enabled) => set({ enableSystemIntegration: enabled }),
       
       setBgSettings: (settings) => set((state) => ({ ...state, ...settings })),
       setIconSettings: (settings) => set((state) => ({ ...state, ...settings })),
@@ -167,10 +169,13 @@ const useSettingsStore = create(
       // Acciones de Backend Tauri (API)
       saveApiConfigToBackend: async () => {
         if (!isTauri) return;
-        const { googleApiKey } = get();
+        const { googleApiKey, enableSystemIntegration } = get();
         try {
           await invoke('save_api_config', {
-            config: { google_api_key: googleApiKey }
+            config: { 
+              google_api_key: googleApiKey,
+              enable_system_integration: enableSystemIntegration
+            }
           });
         } catch (e) {
           console.error("Error al guardar api config:", e);
@@ -182,7 +187,10 @@ const useSettingsStore = create(
         if (!isTauri) return;
         try {
           const config = await invoke('load_api_config');
-          set({ googleApiKey: config.google_api_key });
+          set({ 
+            googleApiKey: config.google_api_key,
+            enableSystemIntegration: config.enable_system_integration || false
+          });
         } catch (e) {
           console.error("Error al cargar api config:", e);
         }

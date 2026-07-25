@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { PlusCircle, Edit3, UserCircle, Save } from 'lucide-react';
+import { PlusCircle, Edit3, UserCircle, Save, Settings } from 'lucide-react';
 import Modal from '../../components/common/Modal/Modal';
 import { invoke, convertFileSrc } from '@tauri-apps/api/tauri';
+import useSettingsStore from '../../store/settingsStore';
 import { ENDPOINTS } from '../../service/api';
 import styles from './PersonalityPage.module.scss';
 
@@ -16,9 +17,11 @@ const PersonalityPage = () => {
   const [editingId, setEditingId] = useState(null);
   
   // Form State
-  const [formData, setFormData] = useState({ nombre: '', descripcion_corta: '', instrucciones: '', image: null });
+  const [formData, setFormData] = useState({ nombre: '', descripcion_corta: '', instrucciones: '', image: null, enable_system_tools: false });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+
+  const { enableSystemIntegration } = useSettingsStore();
 
   const [alert, setAlert] = useState({ isOpen: false, title: '', message: '', isError: false });
 
@@ -64,7 +67,7 @@ const PersonalityPage = () => {
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ nombre: '', descripcion_corta: '', instrucciones: '', image: null });
+    setFormData({ nombre: '', descripcion_corta: '', instrucciones: '', image: null, enable_system_tools: false });
     setSelectedFile(null);
     setPreviewUrl(null);
     setIsModalOpen(true);
@@ -76,7 +79,8 @@ const PersonalityPage = () => {
       nombre: p.nombre || '', 
       descripcion_corta: p.descripcion_corta || '', 
       instrucciones: p.instrucciones || '',
-      image: p.image || null
+      image: p.image || null,
+      enable_system_tools: p.enable_system_tools || false
     });
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -180,6 +184,11 @@ const PersonalityPage = () => {
               </div>
               <div className={styles.cardBody}>
                 <p className={styles.description}>{p.descripcion_corta || 'Sin descripción.'}</p>
+                {p.enable_system_tools && (
+                  <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Settings size={14} /> Herramientas de Sistema habilitadas
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -247,6 +256,23 @@ const PersonalityPage = () => {
             rows={5}
           />
         </div>
+        
+        {enableSystemIntegration && (
+          <div className={styles.formGroup} style={{ marginTop: '1rem', background: 'rgba(255, 255, 255, 0.05)', padding: '10px', borderRadius: '8px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+              <input 
+                type="checkbox" 
+                checked={formData.enable_system_tools} 
+                onChange={(e) => setFormData({...formData, enable_system_tools: e.target.checked})} 
+                style={{ width: '18px', height: '18px', marginRight: '10px', cursor: 'pointer' }}
+              />
+              <span style={{ fontWeight: '500', color: '#eee' }}>Permitir acceso al sistema (Métricas, Estado)</span>
+            </label>
+            <p style={{ margin: '5px 0 0 28px', fontSize: '0.85rem', color: '#aaa' }}>
+              Permite a esta personalidad utilizar herramientas para leer métricas de hardware, procesos y red local.
+            </p>
+          </div>
+        )}
       </Modal>
 
       {/* Modal Alertas */}

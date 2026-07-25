@@ -1,13 +1,40 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, ChevronDown, Download } from 'lucide-react';
+import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon } from 'lucide-react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
 import { ENDPOINTS } from '../../service/api';
 import Modal from '../../components/common/Modal/Modal';
 import styles from './ChatPage.module.scss';
 import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/dialog';
+import { readBinaryFile } from '@tauri-apps/api/fs';
 
-const CodeBlock = ({ language, code, onDownload }) => {
+const getMimeType = (filePath) => {
+  const ext = filePath.split('.').pop().toLowerCase();
+  const map = {
+    pdf: 'application/pdf',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    md: 'text/markdown',
+    json: 'application/json'
+  };
+  return map[ext] || 'application/octet-stream';
+};
+
+const arrayBufferToBase64 = (buffer) => {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
+const CodeBlock = ({ language, code, onDownload, installedRuntimes }) => {
   const [output, setOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -46,10 +73,32 @@ const CodeBlock = ({ language, code, onDownload }) => {
   const isTruncated = lines.length > 50;
   const displayOutput = isTruncated ? lines.slice(0, 50).join('\n') : output;
 
+  // Verificar si el lenguaje está instalado
+  let isLangInstalled = true;
+  if (installedRuntimes) {
+    const langLower = language.toLowerCase().trim();
+    let runtimeKey = null;
+    if (['python', 'py'].includes(langLower)) runtimeKey = 'python';
+    if (['javascript', 'js', 'node', 'ts'].includes(langLower)) runtimeKey = 'node';
+    if (['go'].includes(langLower)) runtimeKey = 'go';
+    if (['java'].includes(langLower)) runtimeKey = 'java';
+    
+    if (runtimeKey && installedRuntimes[runtimeKey] === false) {
+      isLangInstalled = false;
+    }
+  }
+
   return (
     <div className={styles.codeBlockContainer}>
       <div className={styles.codeBlockHeader}>
-        <span>{language}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span>{language}</span>
+          {!isLangInstalled && (
+            <span style={{ color: '#ef4444', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+              ⚠️ Idioma no instalado
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           {isTauri && enableWsl && isExecutable && (
             <>
@@ -89,10 +138,12 @@ const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefi
 
 const ChatPage = () => {
   const { chats, activeChatId, addMessage, setMessages, updateChatPersonality, updateChatTitle } = useChatStore();
-  const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey } = useSettingsStore();
+  const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey, enableSystemIntegration } = useSettingsStore();
   const [inputValue, setInputValue] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [personalities, setPersonalities] = useState([]);
   const [isSending, setIsSending] = useState(false);
+  const [installedRuntimes, setInstalledRuntimes] = useState(null);
   const messagesEndRef = useRef(null);
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -154,6 +205,17 @@ const ChatPage = () => {
       }
     };
     fetchPersonalities();
+  }, []);
+
+  // Fetch installed runtimes for CodeBlock warnings
+  useEffect(() => {
+    const { enableWsl } = useSettingsStore.getState();
+    if (enableWsl) {
+      fetch(ENDPOINTS.RUNTIMES)
+        .then(res => res.json())
+        .then(data => setInstalledRuntimes(data))
+        .catch(err => console.error("Error fetching runtimes", err));
+    }
   }, []);
 
   const handleDownloadCode = async (code, language) => {
@@ -227,21 +289,132 @@ const ChatPage = () => {
         const firstLine = lines[0].replace('```', '').trim();
         const lang = firstLine || 'txt';
         const code = lines.slice(1, -1).join('\n');
-        return <CodeBlock key={index} language={lang} code={code} onDownload={handleDownloadCode} />;
+        return <CodeBlock key={index} language={lang} code={code} onDownload={handleDownloadCode} installedRuntimes={installedRuntimes} />;
       }
       return <span key={index}>{block}</span>;
     });
   };
 
+  const handleAttachFiles = async () => {
+    if (!isTauri) return;
+    try {
+      const selected = await open({
+        multiple: true,
+        filters: [{
+          name: 'Documentos e Imágenes',
+          extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'txt', 'csv', 'md', 'json']
+        }]
+      });
+      
+      if (selected) {
+        const paths = Array.isArray(selected) ? selected : [selected];
+        
+        // Comprobar límite de 5 archivos sugerido
+        if (attachments.length + paths.length > 5) {
+          alert('Has seleccionado más de 5 archivos. Las respuestas podrían tardar más de lo normal o presentar errores dependiendo del límite de contexto.');
+        }
+
+        const newAttachments = [...attachments];
+        
+        for (const filePath of paths) {
+          if (newAttachments.find(a => a.path === filePath)) continue; // Evitar duplicados
+          
+          const filename = filePath.split(/[/\\]/).pop();
+          const mimeType = getMimeType(filePath);
+          
+          const newAtt = {
+            id: Date.now() + Math.random(),
+            path: filePath,
+            name: filename,
+            mimeType: mimeType,
+            status: 'processing',
+            data: null,
+            uri: null
+          };
+          
+          newAttachments.push(newAtt);
+          setAttachments([...newAttachments]);
+          
+          try {
+            // Leer archivo local usando API the fs de Tauri
+            const buffer = await readBinaryFile(filePath);
+            const sizeMB = buffer.byteLength / (1024 * 1024);
+            
+            if (sizeMB > 50) {
+              newAtt.status = 'error';
+              newAtt.error = 'El archivo supera los 50MB permitidos.';
+            } else if (sizeMB < 20) {
+              // Base64 inline
+              newAtt.data = arrayBufferToBase64(buffer);
+              newAtt.status = 'ready';
+            } else {
+              // >= 20MB y <= 50MB: Usar API del backend para subir a Google Files
+              newAtt.status = 'uploading';
+              setAttachments([...newAttachments]);
+              
+              const res = await fetch(ENDPOINTS.UPLOAD, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Google-API-Key': googleApiKey || ''
+                },
+                body: JSON.stringify({ file_path: filePath, mime_type: mimeType })
+              });
+              
+              if (res.ok) {
+                const data = await res.json();
+                newAtt.uri = data.uri;
+                newAtt.status = 'ready';
+              } else {
+                const errData = await res.json();
+                newAtt.status = 'error';
+                newAtt.error = errData.error || 'Error en subida';
+              }
+            }
+          } catch (e) {
+            newAtt.status = 'error';
+            newAtt.error = 'Error leyendo archivo';
+          }
+          
+          setAttachments([...newAttachments]);
+        }
+      }
+    } catch (e) {
+      console.error("Error seleccionando archivo:", e);
+    }
+  };
+
+  const removeAttachment = (id) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim() || !activeChatId || isSending) return;
+    const hasReadyAttachments = attachments.some(a => a.status === 'ready');
+    if ((!inputValue.trim() && !hasReadyAttachments) || !activeChatId || isSending) return;
+
+    // Verificar si hay adjuntos con error o procesando
+    if (attachments.some(a => a.status === 'processing' || a.status === 'uploading')) {
+      alert('Espera a que los archivos terminen de procesarse o subirse.');
+      return;
+    }
 
     const userText = inputValue;
     setInputValue('');
     setIsSending(true);
 
-    const userMessage = { sender: 'user', text: userText };
+    // Preparar adjuntos para el backend
+    const apiAttachments = attachments.filter(a => a.status === 'ready').map(a => ({
+      mime_type: a.mimeType,
+      data: a.data,
+      file_uri: a.uri
+    }));
+
+    // Guardamos estado local de adjuntos para mostrarlos en el UI temporalmente (no persistido en BD local por ahora)
+    const localAttachmentsUI = attachments.map(a => ({ name: a.name, isImage: a.mimeType.startsWith('image/'), localPath: a.path }));
+    setAttachments([]);
+
+    const userMessage = { sender: 'user', text: userText, uiAttachments: localAttachmentsUI };
     addMessage(activeChatId, userMessage);
 
     if (isTauri) {
@@ -257,14 +430,20 @@ const ChatPage = () => {
     }
 
     // Construir historial para la API
-    const apiMessages = [...messages, userMessage].map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 'model',
-      content: msg.text
-    }));
+    const apiMessages = [...messages, userMessage].map((msg, idx) => {
+      // Solo enviamos los adjuntos del mensaje actual
+      const isLastMessage = idx === messages.length;
+      return {
+        role: msg.sender === 'user' ? 'user' : 'model',
+        content: msg.text || (msg.uiAttachments?.length > 0 ? "[Adjuntos enviados]" : ""),
+        attachments: isLastMessage ? apiAttachments : []
+      };
+    });
 
     const selectedPersonalityIdStr = selectedPersonalityId ? selectedPersonalityId.toString() : '';
     const selectedPersonality = personalities.find(p => p.id.toString() === selectedPersonalityIdStr);
     const personalityPrompt = selectedPersonality ? selectedPersonality.instrucciones : '';
+    const useSystemTools = enableSystemIntegration && selectedPersonality?.enable_system_tools;
 
     const payload = {
       messages: apiMessages,
@@ -272,7 +451,8 @@ const ChatPage = () => {
       generate_title: !activeChat.titleGenerated,
       chat_code: parseInt(activeChatId),
       model: aiModel,
-      temperature: parseFloat(temperature)
+      temperature: parseFloat(temperature),
+      enable_system_tools: useSystemTools || false
     };
 
     try {
@@ -401,7 +581,28 @@ const ChatPage = () => {
                 <div className={styles.senderName}>
                   {msg.sender === 'user' ? 'Tú' : agentName}
                 </div>
-                <div className={styles.text}>{parseMessageText(msg.text)}</div>
+                <div className={styles.text}>
+                  {msg.uiAttachments && msg.uiAttachments.length > 0 && (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: msg.text ? '12px' : '0' }}>
+                      {msg.uiAttachments.map((att, i) => (
+                        <div key={i} style={{ 
+                          padding: '6px 12px', 
+                          background: 'rgba(255,255,255,0.05)', 
+                          borderRadius: '6px', 
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          border: '1px solid rgba(255,255,255,0.1)'
+                        }}>
+                          {att.isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+                          <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {parseMessageText(msg.text)}
+                </div>
               </div>
             </div>
           ))
@@ -446,7 +647,55 @@ const ChatPage = () => {
             <Download size={14} /> Descargar Chat
           </button>
         </div>
+        
+        {/* Vista previa de adjuntos */}
+        {attachments.length > 0 && (
+          <div className={styles.attachmentsPreview} style={{ display: 'flex', gap: '8px', padding: '8px 16px', flexWrap: 'wrap' }}>
+            {attachments.map(att => (
+              <div key={att.id} style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#2d2d2d',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: att.status === 'error' ? '1px solid #ef4444' : '1px solid #444',
+                fontSize: '13px'
+              }}>
+                {att.mimeType.startsWith('image/') ? <ImageIcon size={16} color="#60a5fa" /> : <FileText size={16} color="#9ca3af" />}
+                
+                <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '150px' }}>
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{att.name}</span>
+                  {att.status === 'processing' && <span style={{ fontSize: '10px', color: '#fbbf24' }}>Procesando...</span>}
+                  {att.status === 'uploading' && <span style={{ fontSize: '10px', color: '#60a5fa' }}>Subiendo...</span>}
+                  {att.status === 'error' && <span style={{ fontSize: '10px', color: '#ef4444' }}>{att.error}</span>}
+                </div>
+                
+                <button 
+                  onClick={() => removeAttachment(att.id)}
+                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <form className={styles.inputForm} onSubmit={handleSend}>
+          {isTauri && (
+            <button 
+              type="button" 
+              className={styles.attachButton} 
+              onClick={handleAttachFiles}
+              disabled={!googleApiKey || isSending}
+              style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}
+              title="Adjuntar archivo"
+            >
+              <Paperclip size={20} />
+            </button>
+          )}
           <input
             type="text"
             className={styles.input}
@@ -458,7 +707,7 @@ const ChatPage = () => {
           <button 
             type="submit" 
             className={styles.sendButton}
-            disabled={!inputValue.trim() || !activeChatId || isSending || !googleApiKey}
+            disabled={(!inputValue.trim() && attachments.length === 0) || !activeChatId || isSending || !googleApiKey}
           >
             <Send size={20} />
           </button>

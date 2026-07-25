@@ -1,5 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
-import { PlusCircle, Settings, MessageSquare, Trash2, Users, Edit2, Check, X } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { PlusCircle, Settings, MessageSquare, Trash2, Users, Edit2, Check, X, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
@@ -193,6 +193,14 @@ const Sidebar = () => {
         >
           <Users size={20} />
           <span>Personalidades</span>
+        </Link>
+
+        <Link 
+          to="/patch-notes" 
+          className={`${styles.footerBtn} ${location.pathname === '/patch-notes' ? styles.activeBtn : ''}`}
+        >
+          <FileText size={20} />
+          <span>Notas del Parche</span>
         </Link>
 
         <Link 

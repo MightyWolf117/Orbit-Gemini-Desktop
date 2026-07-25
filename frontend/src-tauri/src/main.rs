@@ -58,6 +58,7 @@ struct IconConfig {
 #[derive(Serialize, Deserialize, Clone, Default)]
 struct ApiConfig {
     google_api_key: Option<String>,
+    enable_system_integration: Option<bool>,
 }
 
 fn get_default_app_data_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -178,7 +179,7 @@ fn load_api_config(app_handle: AppHandle) -> Result<ApiConfig, String> {
         }
     }
     
-    Ok(ApiConfig { google_api_key: None })
+    Ok(ApiConfig { google_api_key: None, enable_system_integration: Some(false) })
 }
 
 #[tauri::command]
@@ -593,6 +594,7 @@ struct Personality {
     descripcion_corta: String,
     instrucciones: String,
     image: Option<String>,
+    enable_system_tools: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -648,6 +650,7 @@ fn save_personality(app_handle: AppHandle, personality: Personality) -> Result<P
             p.descripcion_corta = new_pers.descripcion_corta.clone();
             p.instrucciones = new_pers.instrucciones.clone();
             p.image = new_pers.image.clone();
+            p.enable_system_tools = new_pers.enable_system_tools;
             new_pers = p.clone();
         } else {
             return Err("Personality not found".into());
@@ -756,20 +759,23 @@ fn delete_historial(app_handle: AppHandle, id: i64) -> Result<(), String> {
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            match Command::new_sidecar("orbit-api") {
-                Ok(cmd) => {
-                    match cmd.spawn() {
-                        Ok((mut rx, mut _child)) => {
-                            tauri::async_runtime::spawn(async move {
-                                while let Some(event) = rx.recv().await {
-                                    println!("API: {:?}", event);
-                                }
-                            });
+            #[cfg(not(debug_assertions))]
+            {
+                match Command::new_sidecar("orbit-api") {
+                    Ok(cmd) => {
+                        match cmd.spawn() {
+                            Ok((mut rx, mut _child)) => {
+                                tauri::async_runtime::spawn(async move {
+                                    while let Some(event) = rx.recv().await {
+                                        println!("API: {:?}", event);
+                                    }
+                                });
+                            }
+                            Err(e) => println!("Failed to spawn sidecar: {}", e),
                         }
-                        Err(e) => println!("Failed to spawn sidecar: {}", e),
                     }
+                    Err(e) => println!("Failed to find sidecar: {}", e),
                 }
-                Err(e) => println!("Failed to find sidecar: {}", e),
             }
 
             let data_dir = tauri::api::path::app_local_data_dir(&app.config());

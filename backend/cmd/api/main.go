@@ -20,6 +20,7 @@ func main() {
 	// 3. Inicializar Handlers
 	chatHandler := handler.NewChatHandler(aiService, cfg.GoogleAPIKey)
 	systemHandler := handler.NewSystemHandler(cfg.GoogleAPIKey)
+	fileHandler := handler.NewFileHandler(aiService, cfg.GoogleAPIKey)
 
 	// 5. Configurar el Servidor y Enrutador Gin
 	gin.SetMode(gin.ReleaseMode) // Cambiar a gin.DebugMode si necesitas ver los logs detallados
@@ -45,6 +46,12 @@ func main() {
 
 		// Modelos
 		api.GET("/models", systemHandler.Models)
+
+		// Runtimes instalados
+		api.GET("/runtimes", systemHandler.Runtimes)
+
+		// Subida de Archivos a Gemini
+		api.POST("/upload", fileHandler.HandleUpload)
 
 		// Chat IA
 		api.POST("/chat", chatHandler.HandleChat)

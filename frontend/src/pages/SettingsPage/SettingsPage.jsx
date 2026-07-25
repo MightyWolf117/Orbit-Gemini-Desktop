@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Save, Image as ImageIcon, Upload, User, Bot, FolderOpen, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
+import { Save, Image as ImageIcon, Upload, User, Bot, FolderOpen, AlertTriangle, ExternalLink, RefreshCw, HelpCircle } from 'lucide-react';
 import useSettingsStore from '../../store/settingsStore';
 import Modal from '../../components/common/Modal/Modal';
 import styles from './SettingsPage.module.scss';
 import { invoke } from '@tauri-apps/api/tauri';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/dialog';
-import { checkUpdate, installUpdate } from '@tauri-apps/api/updater';
-import { relaunch } from '@tauri-apps/api/process';
+import UpdateManager from '../../components/common/UpdateManager/UpdateManager';
+import { ENDPOINTS } from '../../service/api';
 
 const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefined;
 
@@ -17,8 +17,8 @@ const SettingsPage = () => {
     bgBlur, bgOpacity, bgPath,
     userIconPath, userIconPosX, userIconPosY,
     aiIconPath, aiIconPosX, aiIconPosY,
-    basePath, resolvedBasePath, enableWsl, googleApiKey,
-    setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey,
+    basePath, resolvedBasePath, enableWsl, googleApiKey, enableSystemIntegration,
+    setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey, setEnableSystemIntegration,
     saveBgSettingsToBackend, saveIconSettingsToBackend, savePathConfigToBackend, loadPathConfigFromBackend, saveWslConfigToBackend, loadWslConfigFromBackend, saveApiConfigToBackend, resetSettings,
     availableModels, fetchModels
   } = useSettingsStore();
@@ -31,63 +31,20 @@ const SettingsPage = () => {
     }
   }, [fetchModels, loadPathConfigFromBackend, loadWslConfigFromBackend]);
 
-  const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', isError: false, isUpdate: false });
+  const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', isError: false });
   const [warningModalOpen, setWarningModalOpen] = useState(false);
+  const [systemWarningModalOpen, setSystemWarningModalOpen] = useState(false);
+  const [apiKeyHelpModalOpen, setApiKeyHelpModalOpen] = useState(false);
   const [wslStatus, setWslStatus] = useState(null);
-  const [appVersion, setAppVersion] = useState('');
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [installedRuntimes, setInstalledRuntimes] = useState(null);
 
-  const handleInstallUpdate = async () => {
-    setModalState({ ...modalState, isOpen: false });
-    try {
-      await installUpdate();
-      await relaunch();
-    } catch (error) {
-      console.error("Error al instalar la actualización:", error);
+  const handleSystemIntegrationToggle = (checked) => {
+    if (checked) {
+      setSystemWarningModalOpen(true);
+    } else {
+      setEnableSystemIntegration(false);
     }
   };
-
-  const checkForUpdates = async () => {
-    if (!isTauri) return;
-    setIsCheckingUpdate(true);
-    try {
-      const { shouldUpdate, manifest } = await checkUpdate();
-      if (shouldUpdate) {
-        setModalState({
-          isOpen: true,
-          title: 'Nueva Actualización Disponible',
-          message: `La versión ${manifest?.version} está disponible. La aplicación se reiniciará después de instalarla.`,
-          isError: false,
-          isUpdate: true
-        });
-      } else {
-        setModalState({
-          isOpen: true,
-          title: 'Sin actualizaciones',
-          message: 'Orbit ya está actualizado a la versión más reciente.',
-          isError: false,
-          isUpdate: false
-        });
-      }
-    } catch (error) {
-      console.error("Error al buscar actualizaciones:", error);
-      setModalState({
-        isOpen: true,
-        title: 'Error de Actualización',
-        message: 'No se pudo verificar si hay actualizaciones en este momento.',
-        isError: true,
-        isUpdate: false
-      });
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isTauri) {
-      import('@tauri-apps/api/app').then(app => app.getVersion().then(setAppVersion));
-    }
-  }, []);
 
   useEffect(() => {
     if (isTauri && enableWsl) {
@@ -98,6 +55,17 @@ const SettingsPage = () => {
       });
     } else {
       setWslStatus(null);
+    }
+  }, [enableWsl]);
+
+  useEffect(() => {
+    if (enableWsl) {
+      fetch(ENDPOINTS.RUNTIMES)
+        .then(res => res.json())
+        .then(data => setInstalledRuntimes(data))
+        .catch(err => console.error("Error fetching runtimes", err));
+    } else {
+      setInstalledRuntimes(null);
     }
   }, [enableWsl]);
 
@@ -231,8 +199,14 @@ const SettingsPage = () => {
         
         {/* API Key */}
         <section className={styles.section} style={{ borderColor: !googleApiKey ? '#ef4444' : '#333' }}>
-          <h2 className={styles.sectionTitle}>
+          <h2 className={styles.sectionTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             API Key de Google (Gemini)
+            <HelpCircle 
+              size={18} 
+              style={{ cursor: 'pointer', color: '#3b82f6' }} 
+              onClick={() => setApiKeyHelpModalOpen(true)}
+              title="¿Cómo obtener mi API Key?"
+            />
           </h2>
           <div className={styles.formGroup}>
             <label className={styles.label}>Ingresa tu API Key para poder chatear con la IA:</label>
@@ -466,6 +440,27 @@ const SettingsPage = () => {
                       Comprobando WSL...
                     </div>
                   )}
+
+                  {/* Panel de Lenguajes Instalados */}
+                  {enableWsl && installedRuntimes && (
+                    <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ddd' }}>Runtimes y Lenguajes Detectados en el Sistema</h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {Object.entries(installedRuntimes).map(([name, isInstalled]) => (
+                          <div key={name} style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', 
+                            padding: '4px 10px', borderRadius: '20px', fontSize: '12px',
+                            background: isInstalled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: isInstalled ? '#10b981' : '#ef4444',
+                            border: `1px solid ${isInstalled ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                          }}>
+                            <span>{name.toUpperCase()}</span>
+                            <span>{isInstalled ? '✓' : '✗'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', alignSelf: 'flex-start', marginTop: '6px' }}>
                   <input 
@@ -475,6 +470,27 @@ const SettingsPage = () => {
                     style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                   />
                   <span style={{ marginLeft: '8px', color: '#eee', fontWeight: '500' }}>Habilitar WSL</span>
+                </label>
+              </div>
+            </div>
+
+            <div className={styles.formGroup} style={{ marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <label className={styles.label} style={{ marginBottom: '4px' }}>Integración con el Sistema (Herramientas IA)</label>
+                  <p className={styles.helpText} style={{ margin: 0, maxWidth: '80%' }}>
+                    Permite que el agente de IA lea métricas del sistema (CPU, RAM, Servicios, Ubicación aproximada) mediante Function Calling. 
+                    No se permite ejecución de código destructivo.
+                  </p>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', alignSelf: 'flex-start', marginTop: '6px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={enableSystemIntegration} 
+                    onChange={(e) => handleSystemIntegrationToggle(e.target.checked)} 
+                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                  />
+                  <span style={{ marginLeft: '8px', color: '#eee', fontWeight: '500' }}>Habilitar Integración</span>
                 </label>
               </div>
             </div>
@@ -511,19 +527,7 @@ const SettingsPage = () => {
       </div>
 
       <footer className={styles.footer}>
-        <div style={{ flex: 1, color: '#6E6E77', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {appVersion ? `Orbit Versión ${appVersion}` : 'Orbit'}
-          {isTauri && (
-            <button 
-              onClick={checkForUpdates} 
-              disabled={isCheckingUpdate}
-              style={{ background: 'none', border: '1px solid #2C2C35', color: '#A0A0AB', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}
-            >
-              <RefreshCw size={14} className={isCheckingUpdate ? styles.spin : ''} />
-              {isCheckingUpdate ? 'Buscando...' : 'Buscar actualizaciones'}
-            </button>
-          )}
-        </div>
+        <UpdateManager />
         <button className={styles.resetBtn} onClick={resetSettings}>Restablecer Valores</button>
         <button className={styles.saveBtn} onClick={handleSave}>
           <Save size={18} />
@@ -537,23 +541,12 @@ const SettingsPage = () => {
         onClose={() => setModalState({ ...modalState, isOpen: false })}
         title={modalState.title}
         actions={
-          <>
-            {modalState.isUpdate && (
-              <button 
-                className={`${styles.modalBtn} ${styles.modalBtnPrimary}`}
-                onClick={handleInstallUpdate}
-                style={{ marginRight: '10px' }}
-              >
-                Instalar ahora
-              </button>
-            )}
-            <button 
-              className={`${styles.modalBtn} ${modalState.isError ? styles.modalBtnError : (modalState.isUpdate ? styles.modalBtn : styles.modalBtnPrimary)}`}
-              onClick={() => setModalState({ ...modalState, isOpen: false })}
-            >
-              {modalState.isUpdate ? 'Más tarde' : 'Entendido'}
-            </button>
-          </>
+          <button 
+            className={`${styles.modalBtn} ${modalState.isError ? styles.modalBtnError : styles.modalBtnPrimary}`}
+            onClick={() => setModalState({ ...modalState, isOpen: false })}
+          >
+            Entendido
+          </button>
         }
       >
         <p>{modalState.message}</p>
@@ -575,6 +568,78 @@ const SettingsPage = () => {
       >
         <p>Si cambias la ruta base, los archivos existentes en la ruta anterior (historial, avatares, fondos) <strong>NO se moverán automáticamente</strong>.</p>
         <p style={{ marginTop: '10px' }}>El sistema empezará a guardar y buscar los datos en la nueva ruta. Deberás configurar nuevamente los ajustes o mover la información manualmente desde tu carpeta anterior.</p>
+      </Modal>
+
+      {/* Modal de Advertencia de Integración del Sistema */}
+      <Modal 
+        isOpen={systemWarningModalOpen} 
+        onClose={() => setSystemWarningModalOpen(false)}
+        title="Advertencia de Seguridad y Privacidad"
+        actions={
+          <>
+            <button 
+              className={`${styles.modalBtn}`}
+              style={{ background: 'transparent', border: '1px solid #555', color: '#fff', marginRight: '10px' }}
+              onClick={() => {
+                setEnableSystemIntegration(false);
+                setSystemWarningModalOpen(false);
+              }}
+            >
+              Cancelar
+            </button>
+            <button 
+              className={`${styles.modalBtn} ${styles.modalBtnPrimary}`}
+              style={{ background: '#ef4444', border: 'none' }}
+              onClick={() => {
+                setEnableSystemIntegration(true);
+                setSystemWarningModalOpen(false);
+              }}
+            >
+              Aceptar Riesgos
+            </button>
+          </>
+        }
+      >
+        <p>Al habilitar esta función, permites que los modelos de IA accedan a información local de tu computadora para responder preguntas, lo cual incluye:</p>
+        <ul style={{ marginTop: '10px', marginLeft: '20px', color: '#ccc', fontSize: '0.9rem' }}>
+          <li>Métricas de hardware (Uso de CPU, memoria RAM, almacenamiento).</li>
+          <li>Estado de los servicios activos de Windows.</li>
+          <li>Información de red y ubicación aproximada (Ciudad/Localidad basada en IP, sin direcciones exactas ni datos de GPS).</li>
+        </ul>
+        <p style={{ marginTop: '10px', color: '#ffcc00' }}><strong>Nota Importante:</strong> Aunque nuestra aplicación está diseñada para ser de solo lectura y no extraer contraseñas, la información recopilada será enviada temporalmente al modelo de Google (Gemini) para procesar tus respuestas. Asumes los riesgos relacionados con la ejecución de estas herramientas de IA.</p>
+      </Modal>
+
+      {/* Modal de Ayuda para API Key */}
+      <Modal
+        isOpen={apiKeyHelpModalOpen}
+        onClose={() => setApiKeyHelpModalOpen(false)}
+        title="¿Cómo obtener tu API Key de Google?"
+        width="500px"
+      >
+        <div style={{ color: '#d1d5db', lineHeight: '1.6' }}>
+          <p style={{ marginBottom: '16px' }}>
+            Para usar esta aplicación, necesitas una clave de API gratuita de Google (Gemini). Sigue estos pasos:
+          </p>
+          <ol style={{ marginLeft: '20px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <li>Ve a la página de <strong>Google AI Studio</strong>: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none' }}>aistudio.google.com</a></li>
+            <li>Inicia sesión con tu cuenta de Google.</li>
+            <li>En el menú lateral izquierdo, haz clic en <strong>Get API key</strong>.</li>
+            <li>Haz clic en el botón azul <strong>Create API key</strong>.</li>
+            <li>Selecciona un proyecto existente o haz clic en "Create API key in new project".</li>
+            <li>Copia la clave generada (suele empezar por <code>AIzaSy...</code>).</li>
+            <li>Vuelve a esta aplicación y pega la clave en el recuadro correspondiente.</li>
+          </ol>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+            <button 
+              onClick={() => setApiKeyHelpModalOpen(false)}
+              style={{
+                background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: '500'
+              }}
+            >
+              ¡Entendido!
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
