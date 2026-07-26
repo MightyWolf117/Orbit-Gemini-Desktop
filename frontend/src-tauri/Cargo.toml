@@ -1,6 +1,6 @@
 [package]
 name = "Orbit"
-version = "1.0.3"
+version = "1.2.1"
 description = "Orbit Desktop"
 authors = ["MightyWolf"]
 license = "GPL-3.0-or-later"

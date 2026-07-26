@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
 import { ENDPOINTS } from '../../service/api';
 import Modal from '../../components/common/Modal/Modal';
+import MediaCard from '../../components/common/MediaPlayer/MediaCard';
 import styles from './ChatPage.module.scss';
 import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/dialog';
@@ -138,7 +139,7 @@ const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefi
 
 const ChatPage = () => {
   const { chats, activeChatId, addMessage, setMessages, updateChatPersonality, updateChatTitle } = useChatStore();
-  const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey, enableSystemIntegration } = useSettingsStore();
+  const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey, enableSystemIntegration, availableModels, fetchModels, apiTier } = useSettingsStore();
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [personalities, setPersonalities] = useState([]);
@@ -289,6 +290,9 @@ const ChatPage = () => {
         const firstLine = lines[0].replace('```', '').trim();
         const lang = firstLine || 'txt';
         const code = lines.slice(1, -1).join('\n');
+        if (['media', 'youtube', 'spotify', 'audio', 'video'].includes(lang.toLowerCase())) {
+          return <MediaCard key={index} code={code} />;
+        }
         return <CodeBlock key={index} language={lang} code={code} onDownload={handleDownloadCode} installedRuntimes={installedRuntimes} />;
       }
       return <span key={index}>{block}</span>;
@@ -460,7 +464,8 @@ const ChatPage = () => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Google-API-Key': googleApiKey || ''
+          'X-Google-API-Key': googleApiKey || '',
+          'X-Google-API-Tier': apiTier || 'free'
         },
         body: JSON.stringify(payload)
       });
@@ -513,6 +518,7 @@ const ChatPage = () => {
         text: `**Error:** Problema de conexión (${e.message})`
       });
     } finally {
+      if (fetchModels) fetchModels();
       setIsSending(false);
     }
   };
@@ -626,6 +632,54 @@ const ChatPage = () => {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {(() => {
+        const activeModelStats = availableModels?.find(m => m.id === aiModel);
+        const showQuotaWarning = activeModelStats && (activeModelStats.limitReached || activeModelStats.limitReached429);
+        const showBillingWarning = activeModelStats && activeModelStats.requiresBilling403;
+        return (
+          <>
+            {showQuotaWarning && (
+              <div style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#f87171',
+                padding: '10px 16px',
+                margin: '0 20px 10px 20px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '0.85rem'
+              }}>
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>🛑 Advertencia de Límite Diario:</strong> El modelo <code>{aiModel}</code> ha alcanzado su tope estimado o devolvió error 429 hoy. Se restablecerá mañana. Puedes seleccionar otro modelo en Ajustes.
+                </div>
+              </div>
+            )}
+            {showBillingWarning && !showQuotaWarning && (
+              <div style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                color: '#fbbf24',
+                padding: '10px 16px',
+                margin: '0 20px 10px 20px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '0.85rem'
+              }}>
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>🔒 Modelo de Pago (Facturación Requerida):</strong> El modelo <code>{aiModel}</code> está marcado como <em>&quot;solo plan con facturación&quot;</em> (Error 403). Requiere una cuenta de Google Cloud con facturación activa.
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       <div className={styles.inputArea}>
         <div className={styles.inputHeader}>

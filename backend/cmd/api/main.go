@@ -30,7 +30,7 @@ func main() {
 	router.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, PATCH, SELECT")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Google-API-Key")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Google-API-Key, X-Google-API-Tier")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -46,9 +46,13 @@ func main() {
 
 		// Modelos
 		api.GET("/models", systemHandler.Models)
+		api.POST("/models/reset", systemHandler.ResetModelsQuota)
 
 		// Runtimes instalados
 		api.GET("/runtimes", systemHandler.Runtimes)
+
+		// Búsqueda multimedia
+		api.GET("/media/search", systemHandler.SearchMedia)
 
 		// Subida de Archivos a Gemini
 		api.POST("/upload", fileHandler.HandleUpload)

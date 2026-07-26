@@ -9,6 +9,7 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 	"orbit-backend/internal/service"
+	"orbit-backend/internal/tools"
 )
 
 type SystemHandler struct {
@@ -23,7 +24,10 @@ func NewSystemHandler(fallbackApiKey string) *SystemHandler {
 
 // Health responde un 200 OK para confirmar que el backend está activo
 func (h *SystemHandler) Health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"service": "orbit-backend",
+	})
 }
 
 // Models consulta la API de Google y devuelve los modelos soportados
@@ -33,20 +37,28 @@ func (h *SystemHandler) Models(c *gin.Context) {
 		apiKey = h.fallbackApiKey
 	}
 	if apiKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "API Key de Google no configurada"})
+		c.JSON(http.StatusOK, gin.H{"models": []service.ModelStats{}})
 		return
 	}
 
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo conectar a la API de Gemini"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al conectar con la API de Google Gemini"})
 		return
 	}
 	defer client.Close()
 
+	tier := c.Query("tier")
+	if tier == "" {
+		tier = c.GetHeader("X-Google-API-Tier")
+	}
+	if tier == "" {
+		tier = "free"
+	}
+
 	// Recorremos los modelos disponibles (ej. gemini-1.5-flash, gemini-1.5-pro, etc)
-	var availableModels []map[string]string
+	var availableModels []service.ModelStats
 	
 	iter := client.ListModels(ctx)
 	for {
@@ -72,18 +84,19 @@ func (h *SystemHandler) Models(c *gin.Context) {
 
 		id := strings.TrimPrefix(name, "models/")
 
-		availableModels = append(availableModels, map[string]string{
-			"id":           id,
-			"displayName":  m.DisplayName,
-			"description":  m.Description,
-			"status":       "Activo", 
-			"quotaMessage": "Para ver su cuota exacta restante comuníquese con el administrador.",
-		})
+		stats := service.GetGlobalModelQuotaService().GetModelStats(id, m.DisplayName, m.Description, tier)
+		availableModels = append(availableModels, stats)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"models": availableModels,
 	})
+}
+
+// ResetModelsQuota restablece manualmente el contador de cuotas del día
+func (h *SystemHandler) ResetModelsQuota(c *gin.Context) {
+	service.GetGlobalModelQuotaService().ResetManual()
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "Contadores reiniciados exitosamente"})
 }
 
 // Runtimes devuelve un mapa de los lenguajes/binarios instalados
@@ -92,3 +105,17 @@ func (h *SystemHandler) Runtimes(c *gin.Context) {
 	c.JSON(http.StatusOK, runtimesMap)
 }
 
+// SearchMedia busca contenido multimedia en YouTube
+func (h *SystemHandler) SearchMedia(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "El parámetro q es requerido"})
+		return
+	}
+	results, err := tools.SearchYouTubeStructured(query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"results": results})
+}

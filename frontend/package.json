@@ -1,7 +1,7 @@
 {
   "name": "orbit",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.2.1",
   "description": "Orbit Desktop Assistant",
   "author": "MightyWolf",
   "license": "GPL-3.0-or-later",
@@ -18,7 +18,7 @@
     "lucide-react": "^1.25.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.11.0",
+    "react-router-dom": "^7.18.1",
     "sass": "^1.101.0",
     "zustand": "^5.0.14"
   },

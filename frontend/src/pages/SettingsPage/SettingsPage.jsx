@@ -20,7 +20,7 @@ const SettingsPage = () => {
     basePath, resolvedBasePath, enableWsl, googleApiKey, enableSystemIntegration,
     setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey, setEnableSystemIntegration,
     saveBgSettingsToBackend, saveIconSettingsToBackend, savePathConfigToBackend, loadPathConfigFromBackend, saveWslConfigToBackend, loadWslConfigFromBackend, saveApiConfigToBackend, resetSettings,
-    availableModels, fetchModels
+    availableModels, fetchModels, apiTier, setApiTier, resetModelsQuota
   } = useSettingsStore();
 
   useEffect(() => {
@@ -336,6 +336,16 @@ const SettingsPage = () => {
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Configuración de IA</h2>
           <div className={styles.formGroup}>
+            <label className={styles.label}>Capa / Tier de API de Google</label>
+            <select className={styles.select} value={apiTier || 'free'} onChange={(e) => setApiTier(e.target.value)}>
+              <option value="free">Gratuito (Free Tier) - Límites estándar (ej. 1,500 RPD en Flash)</option>
+              <option value="paid">Pago con Facturación (Pay-As-You-Go) - Límite ampliado (4M RPD)</option>
+            </select>
+            <span className={styles.hint} style={{fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px', display: 'block'}}>
+              Permite calcular tus topes diarios según la documentación oficial de Google Cloud.
+            </span>
+          </div>
+          <div className={styles.formGroup}>
             <label className={styles.label}>Modelo preferido</label>
             <select className={styles.select} value={aiModel} onChange={(e) => setAiModel(e.target.value)}>
               {availableModels.length > 0 ? (
@@ -353,6 +363,127 @@ const SettingsPage = () => {
           <div className={styles.formGroup}>
             <label className={styles.label}>Temperatura ({temperature})</label>
             <input type="range" className={styles.range} min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} />
+          </div>
+
+          {/* Panel Inteligente de Cuotas y Modelos */}
+          <div style={{
+            marginTop: '20px',
+            padding: '16px',
+            backgroundColor: 'rgba(30, 41, 59, 0.6)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#e2e8f0' }}>
+                📊 Panel Inteligente de Cuotas y Modelos
+              </h3>
+              <button 
+                onClick={() => { if (resetModelsQuota) resetModelsQuota(); }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#e2e8f0',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Reiniciar contadores del día"
+              >
+                <RefreshCw size={14} /> Reiniciar Contadores del Día
+              </button>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '12px' }}>
+              Monitoreo en tiempo real del uso diario y límites oficiales por tier en Google AI Studio.
+            </p>
+            {availableModels && availableModels.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {availableModels.map(m => {
+                  const limit = m.estimatedLimit || (m.id?.includes('pro') ? 50 : 1500);
+                  const count = m.usageCount || 0;
+                  const pct = Math.min(100, Math.round((count / limit) * 100));
+                  const is429 = m.limitReached429;
+                  const is403 = m.requiresBilling403;
+                  const isReached = m.limitReached || is429;
+
+                  let badgeColor = '#10b981'; // green
+                  let badgeBg = 'rgba(16, 185, 129, 0.15)';
+                  let badgeText = 'Activo';
+                  if (is403) {
+                    badgeColor = '#fbbf24'; // yellow
+                    badgeBg = 'rgba(245, 158, 11, 0.15)';
+                    badgeText = 'Solo plan con facturación';
+                  } else if (isReached) {
+                    badgeColor = '#f87171'; // red
+                    badgeBg = 'rgba(239, 68, 68, 0.15)';
+                    badgeText = is429 ? '🛑 Límite 429 alcanzado' : '🛑 Tope de cuota';
+                  }
+
+                  return (
+                    <div key={m.id} style={{
+                      padding: '12px',
+                      backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                      borderRadius: '8px',
+                      border: isReached ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div>
+                          <strong style={{ color: '#f8fafc', fontSize: '0.95rem' }}>{m.displayName}</strong>
+                          <span style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '8px' }}>({m.id})</span>
+                        </div>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          color: badgeColor,
+                          backgroundColor: badgeBg,
+                          fontWeight: 600
+                        }}>
+                          {badgeText}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '8px' }}>
+                        {m.quotaMessage || `Uso: ${count} / ${limit} RPD`}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          flex: 1,
+                          height: '6px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: '3px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${pct}%`,
+                            height: '100%',
+                            backgroundColor: isReached ? '#ef4444' : is403 ? '#f59e0b' : '#3b82f6',
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', minWidth: '45px', textAlign: 'right' }}>
+                          {count}/{limit}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                        <span style={{ color: is429 ? '#ef4444' : '#64748b' }}>
+                          {is429 ? '☑ Alerta 429 activa' : '☐ Sin error 429 hoy'}
+                        </span>
+                        <span style={{ color: is403 ? '#f59e0b' : '#64748b' }}>
+                          {is403 ? '☑ Facturación requerida (403)' : '☐ Acceso en capa actual'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '0.85rem' }}>
+                Cargando estadísticas de modelos o sin conexión a la API...
+              </div>
+            )}
           </div>
         </section>
 

@@ -6,10 +6,61 @@ const PatchNotesPage = () => {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>Notas del Parche</h1>
-        <p className={styles.subtitle}>Versión actual: 1.1.1</p>
+        <p className={styles.subtitle}>Versión actual: 1.2.1</p>
       </header>
 
       <div className={styles.content}>
+        <section className={styles.patchSection}>
+          <h2 className={styles.versionTitle}>
+            Versión 1.2.1 - Sistema Inteligente de Modelos, Cuotas y Tiers
+          </h2>
+          <span className={styles.date}>26 de Julio, 2026</span>
+          
+          <div className={styles.category}>
+            <h3 className={styles.categoryTitle} style={{ color: '#3b82f6' }}>
+              <Zap size={18} /> Control de Cuotas y Alertas Inteligentes (Google Gemini)
+            </h3>
+            <ul className={styles.list}>
+              <li><strong>Conteo Inteligente en Tiempo Real:</strong> Orbit ahora registra automáticamente en disco cada petición exitosa (200 OK) por modelo para calcular tus límites diarios sin saturar tu API.</li>
+              <li><strong>Selector de Capa / Tier en Ajustes:</strong> Puedes indicar si utilizas el Tier Gratuito (1,500 RPD en modelos Flash / 50 RPD en Pro) o el Plan con Facturación (Pay-As-You-Go con 4M RPD).</li>
+              <li><strong>Panel Inteligente de Cuotas:</strong> Nueva sección en Ajustes con barras de progreso visuales, monitoreo de cuotas por modelo y botón de reinicio manual del día.</li>
+              <li><strong>Detección de Error 429 y 403:</strong> Si un modelo alcanza su tope de cuota diario o devuelve error 429, el sistema activa una alerta visual roja para avisarte explícitamente y sugiere cambiar de modelo. Si es un modelo pago (403), lo identifica automáticamente con la etiqueta <em>&quot;solo plan con facturación&quot;</em>.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section className={styles.patchSection}>
+          <h2 className={styles.versionTitle}>
+            Versión 1.2.0 - Expansión de Conocimiento en Tiempo Real y Reproductor Multimedia
+          </h2>
+          <span className={styles.date}>25 de Julio, 2026</span>
+          
+          <div className={styles.category}>
+            <h3 className={styles.categoryTitle} style={{ color: '#10b981' }}>
+              <Zap size={18} /> 12 Nuevas Herramientas e Inteligencia Externa (Sin Auth)
+            </h3>
+            <ul className={styles.list}>
+              <li><strong>Motor de Búsqueda Web (DuckDuckGo):</strong> Orbit ahora puede realizar búsquedas en internet en tiempo real sin requerir API Keys de pago para obtener noticias o documentación actual.</li>
+              <li><strong>Lectura de Páginas Web (Jina AI Reader):</strong> Puedes pegarle cualquier enlace de un artículo o blog a Gemini para que lo lea completo en formato Markdown y te haga resúmenes o análisis técnicos.</li>
+              <li><strong>Desarrollo y Repositorios (GitHub):</strong> Capacidad para consultar los últimos problemas (*issues*) abiertos y repositorios recientes de usuarios y proyectos públicos en GitHub.</li>
+              <li><strong>Clima para Devs (wttr.in):</strong> Consulta instantánea del clima de tu ciudad desde consola sin clientes pesados ni registro.</li>
+              <li><strong>Economía y Divisas:</strong> Consulta de tasas de cambio y conversión internacional en tiempo real con datos de Forex públicos.</li>
+              <li><strong>Cultura, Ciencia y Entretenimiento:</strong> Integración de búsqueda enciclopédica en Wikipedia, catálogo mundial de libros (Open Library), base de datos de Anime/Manga (Jikan / MyAnimeList) y la foto espacial del día de la NASA (APOD).</li>
+            </ul>
+          </div>
+
+          <div className={styles.category}>
+            <h3 className={styles.categoryTitle} style={{ color: '#8b5cf6' }}>
+              <CheckCircle size={18} /> Reproductor Multimedia y de Música de Fondo
+            </h3>
+            <ul className={styles.list}>
+              <li><strong>Barra Multimedia Flotante y Expandible:</strong> Nuevo reproductor integrado (`MediaDock`) que te permite escuchar música de fondo desde YouTube, Spotify o archivos MP3 de tu PC sin interrumpir tu trabajo al navegar por la app.</li>
+              <li><strong>Tarjetas Interactivas de Video en Chat:</strong> Cuando le pidas a la IA que te recomiende un tutorial o una canción, imprimirá una tarjeta con el botón <em>"▶ Reproducir en Orbit"</em> para iniciar el video en segundo plano al instante.</li>
+              <li><strong>Arquitectura Limpia y Modular:</strong> Refactorización del backend con un paquete especializado (<code>internal/tools</code>) que separa limpiamente las herramientas externas de los servicios del sistema, evitando archivos monolíticos.</li>
+            </ul>
+          </div>
+        </section>
+
         <section className={styles.patchSection}>
           <h2 className={styles.versionTitle}>
             Versión 1.1.1 - Actualización de Inteligencia y Sistema

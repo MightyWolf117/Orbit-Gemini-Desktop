@@ -1,8 +1,9 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { PlusCircle, Settings, MessageSquare, Trash2, Users, Edit2, Check, X, FileText } from 'lucide-react';
+import { PlusCircle, Settings, MessageSquare, Trash2, Users, Edit2, Check, X, FileText, Music } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
+import useMediaStore from '../../store/mediaStore';
 import { ENDPOINTS } from '../../service/api';
 import Modal from '../../components/common/Modal/Modal';
 import styles from './Sidebar.module.scss';
@@ -10,6 +11,7 @@ import styles from './Sidebar.module.scss';
 const Sidebar = () => {
   const { chats, setChats, activeChatId, setActiveChat, createNewChat, deleteChat, updateChatTitle } = useChatStore();
   const { isOnline, checkHealth } = useSettingsStore();
+  const { toggleExpanded } = useMediaStore();
   const location = useLocation();
   const [editingChatId, setEditingChatId] = useState(null);
   const [editTitleValue, setEditTitleValue] = useState("");
@@ -186,6 +188,15 @@ const Sidebar = () => {
           <div className={`${styles.dot} ${isOnline ? styles.online : styles.offline}`}></div>
           <span>{isOnline ? 'Servicio en línea' : 'Servicio offline'}</span>
         </div>
+
+        <button 
+          className={styles.footerBtn} 
+          onClick={toggleExpanded}
+          style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '8px', color: '#e5e7eb', fontSize: '0.9rem', transition: 'all 0.2s' }}
+        >
+          <Music size={20} color="#8b5cf6" />
+          <span>Reproductor de Música</span>
+        </button>
         
         <Link 
           to="/personalities" 

@@ -25,6 +25,7 @@ const useSettingsStore = create(
       // Ajustes de API
       googleApiKey: null,
       enableSystemIntegration: false,
+      apiTier: 'free',
 
       // Ajustes de Iconos
       userIconPath: null,
@@ -42,6 +43,10 @@ const useSettingsStore = create(
       setEnableWsl: (enabled) => set({ enableWsl: enabled }),
       setGoogleApiKey: (key) => set({ googleApiKey: key }),
       setEnableSystemIntegration: (enabled) => set({ enableSystemIntegration: enabled }),
+      setApiTier: (tier) => {
+        set({ apiTier: tier });
+        get().fetchModels();
+      },
       
       setBgSettings: (settings) => set((state) => ({ ...state, ...settings })),
       setIconSettings: (settings) => set((state) => ({ ...state, ...settings })),
@@ -215,12 +220,14 @@ const useSettingsStore = create(
       },
 
       fetchModels: async () => {
-        const { googleApiKey } = get();
+        const { googleApiKey, apiTier } = get();
+        const tier = apiTier || 'free';
         try {
           const { ENDPOINTS } = await import('../service/api');
-          const response = await fetch(ENDPOINTS.MODELS, {
+          const response = await fetch(`${ENDPOINTS.MODELS}?tier=${tier}`, {
             headers: {
-              'X-Google-API-Key': googleApiKey || ''
+              'X-Google-API-Key': googleApiKey || '',
+              'X-Google-API-Tier': tier
             }
           });
           if (response.ok) {
@@ -231,6 +238,16 @@ const useSettingsStore = create(
           }
         } catch (e) {
           console.error("Error al cargar modelos:", e);
+        }
+      },
+
+      resetModelsQuota: async () => {
+        try {
+          const { ENDPOINTS } = await import('../service/api');
+          await fetch(`${ENDPOINTS.MODELS}/reset`, { method: 'POST' });
+          get().fetchModels();
+        } catch (e) {
+          console.error("Error al reiniciar cuotas:", e);
         }
       },
 

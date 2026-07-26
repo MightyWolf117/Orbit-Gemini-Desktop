@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"google.golang.org/genai"
 
 	"orbit-backend/internal/domain"
+	"orbit-backend/internal/tools"
 )
 
 type aiService struct{}
@@ -39,16 +41,22 @@ func (s *aiService) GenerateResponse(ctx context.Context, req domain.ChatRequest
 
 	prompt := req.PersonalityPrompt
 	if prompt == "" {
-		prompt = "Eres un asistente virtual útil e inteligente."
+		prompt = "Eres un asistente virtual útil e inteligente de Orbit."
 	}
+	currentTime := time.Now().Format("2006-01-02 15:04:05")
+	prompt = fmt.Sprintf("%s\n\n[Contexto en Tiempo Real] Fecha y hora actual del sistema: %s. IMPORTANTE: Cuando el usuario te pregunte qué día es hoy, sobre noticias del día, eventos actuales, clima, tasas de cambio o temas recientes, SIEMPRE debes utilizar y ejecutar tu herramienta search_web_duckduckgo para obtener información veraz y en tiempo real de internet, en lugar de asumir fechas pasadas o datos de tu entrenamiento.", prompt, currentTime)
 	config.SystemInstruction = &genai.Content{
 		Parts: []*genai.Part{genai.NewPartFromText(prompt)},
 	}
 
+	allTools := append([]*genai.FunctionDeclaration{}, tools.GetExternalDeclarations()...)
 	if req.EnableSystemTools {
+		allTools = append(allTools, GetSystemTools()...)
+	}
+	if len(allTools) > 0 {
 		config.Tools = []*genai.Tool{
 			{
-				FunctionDeclarations: GetSystemTools(),
+				FunctionDeclarations: allTools,
 			},
 		}
 	}
@@ -159,7 +167,12 @@ func (s *aiService) GenerateResponse(ctx context.Context, req domain.ChatRequest
 			case "get_installed_runtimes":
 				result, fcErr = GetInstalledRuntimes()
 			default:
-				result = fmt.Sprintf("Función desconocida: %s", fc.Name)
+				if extRes, extErr, handled := tools.ExecuteExternalTool(funcName, fc.Args); handled {
+					result = extRes
+					fcErr = extErr
+				} else {
+					result = fmt.Sprintf("Función desconocida: %s", fc.Name)
+				}
 			}
 
 			log.Printf("[AI Tool Call] %s -> Result: %v (Err: %v)", fc.Name, result, fcErr)
