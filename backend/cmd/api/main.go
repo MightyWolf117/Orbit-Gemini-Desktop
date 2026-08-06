@@ -5,6 +5,7 @@ import (
 
 	"orbit-backend/internal/config"
 	"orbit-backend/internal/handler"
+	"orbit-backend/internal/logger"
 	"orbit-backend/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,11 @@ func main() {
 	chatHandler := handler.NewChatHandler(aiService, cfg.GoogleAPIKey)
 	systemHandler := handler.NewSystemHandler(cfg.GoogleAPIKey)
 	fileHandler := handler.NewFileHandler(aiService, cfg.GoogleAPIKey)
+
+	// 4. Configurar logs para enviar al frontend
+	log.SetOutput(logger.GlobalLogBuffer)
+	gin.DefaultWriter = logger.GlobalLogBuffer
+	gin.DefaultErrorWriter = logger.GlobalLogBuffer
 
 	// 5. Configurar el Servidor y Enrutador Gin
 	gin.SetMode(gin.ReleaseMode) // Cambiar a gin.DebugMode si necesitas ver los logs detallados
@@ -43,6 +49,9 @@ func main() {
 	{
 		// Health Check
 		api.GET("/health", systemHandler.Health)
+
+		// Logs en tiempo real
+		api.GET("/logs/stream", systemHandler.StreamLogs)
 
 		// Modelos
 		api.GET("/models", systemHandler.Models)

@@ -11,6 +11,8 @@ import { convertFileSrc } from '@tauri-apps/api/tauri';
 import HotkeyManager from './components/common/HotkeyManager/HotkeyManager';
 import MediaPlayer from './components/common/MediaPlayer/MediaPlayer';
 
+import DevConsole from './components/common/DevConsole/DevConsole';
+
 // Detectar entorno Tauri
 const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefined;
 
@@ -82,6 +84,7 @@ function App() {
     <Router>
       <HotkeyManager />
       <MediaPlayer />
+      <DevConsole />
       {/* Capa base de fondo */}
       <div 
         className={styles.globalBackground}

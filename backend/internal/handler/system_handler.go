@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
+	"orbit-backend/internal/logger"
 	"orbit-backend/internal/service"
 	"orbit-backend/internal/tools"
 )
@@ -118,4 +119,28 @@ func (h *SystemHandler) SearchMedia(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"results": results})
+}
+
+// StreamLogs provee eventos SSE con los logs capturados
+func (h *SystemHandler) StreamLogs(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+
+	logChan := make(chan string, 100)
+	logger.GlobalLogBuffer.AddListener(logChan)
+	defer logger.GlobalLogBuffer.RemoveListener(logChan)
+
+	clientGone := c.Writer.CloseNotify()
+
+	for {
+		select {
+		case <-clientGone:
+			return
+		case msg := <-logChan:
+			c.Writer.Write([]byte("data: " + msg + "\n\n"))
+			c.Writer.Flush()
+		}
+	}
 }

@@ -39,10 +39,40 @@ func (s *aiService) GenerateResponse(ctx context.Context, req domain.ChatRequest
 		Temperature: req.Temperature,
 	}
 
-	prompt := req.PersonalityPrompt
-	if prompt == "" {
-		prompt = "Eres un asistente virtual útil e inteligente de Orbit."
+	var prompt string
+	responderName := ""
+
+	if req.IsGroupChat && len(req.GroupPersonalities) > 0 {
+		var personalitiesInfo string
+		for _, p := range req.GroupPersonalities {
+			personalitiesInfo += fmt.Sprintf("- Nombre: %s\n  Instrucciones: %s\n\n", p.Name, p.Instructions)
+		}
+
+		var roomContextStr string
+		if req.RoomContext != "" {
+			roomContextStr = fmt.Sprintf("\n[REGLAS Y CONTEXTO DE LA SALA]: %s\n", req.RoomContext)
+		}
+
+		if req.ManualTarget != "" {
+			var targetName string
+			for _, p := range req.GroupPersonalities {
+				if p.ID == req.ManualTarget {
+					targetName = p.Name
+					responderName = p.Name
+					break
+				}
+			}
+			prompt = fmt.Sprintf("Estás en una sala de chat grupal con múltiples personalidades:\n%s%s\nActualmente, TÚ ERES %s. Debes responder asumiendo ÚNICAMENTE tu rol como %s, ignorando ser las otras personalidades. No prefijes tu respuesta con tu nombre, solo habla como el personaje. Toma muy en cuenta el contexto de la sala si existe.", personalitiesInfo, roomContextStr, targetName, targetName)
+		} else {
+			prompt = fmt.Sprintf("Estás en una sala de chat grupal con las siguientes personalidades:\n%s%s\nEres el ORQUESTADOR del grupo. Tu tarea es analizar los últimos mensajes y decidir QUÉ personalidad (solo una) debería responder basándose en el flujo de la conversación, las personalidades disponibles, y el contexto de la sala. OBLIGATORIO: Debes iniciar tu respuesta con el prefijo exacto '[Nombre de la Personalidad]: ' seguido del mensaje actuando como ese personaje. Ejemplo: '[Iron Man]: Hola, ¿qué tal?'. Si un personaje acaba de hablar, otro debería responderle si tiene sentido. No elijas siempre al mismo.", personalitiesInfo, roomContextStr)
+		}
+	} else {
+		prompt = req.PersonalityPrompt
+		if prompt == "" {
+			prompt = "Eres un asistente virtual útil e inteligente de Orbit."
+		}
 	}
+
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	prompt = fmt.Sprintf("%s\n\n[Contexto en Tiempo Real] Fecha y hora actual del sistema: %s. IMPORTANTE: Cuando el usuario te pregunte qué día es hoy, sobre noticias del día, eventos actuales, clima, tasas de cambio o temas recientes, SIEMPRE debes utilizar y ejecutar tu herramienta search_web_duckduckgo para obtener información veraz y en tiempo real de internet, en lugar de asumir fechas pasadas o datos de tu entrenamiento.", prompt, currentTime)
 	config.SystemInstruction = &genai.Content{
@@ -240,9 +270,32 @@ func (s *aiService) GenerateResponse(ctx context.Context, req domain.ChatRequest
 		}
 	}
 
+	var promptTokens, candidateTokens, totalTokens int32
+	if resp != nil && resp.UsageMetadata != nil {
+		promptTokens = resp.UsageMetadata.PromptTokenCount
+		candidateTokens = resp.UsageMetadata.CandidatesTokenCount
+		totalTokens = resp.UsageMetadata.TotalTokenCount
+	}
+
+	// Parsear Orchestrator format: "[Name]: response"
+	if req.IsGroupChat && req.ManualTarget == "" {
+		if strings.HasPrefix(strings.TrimSpace(responseText), "[") {
+			parts := strings.SplitN(strings.TrimSpace(responseText), "]:", 2)
+			if len(parts) == 2 {
+				extractedName := strings.Trim(parts[0], "[] ")
+				responderName = extractedName
+				responseText = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
 	return &domain.ChatResponse{
-		Response: responseText,
-		Title:    title,
+		Response:        responseText,
+		ResponderName:   responderName,
+		Title:           title,
+		PromptTokens:    promptTokens,
+		CandidateTokens: candidateTokens,
+		TotalTokens:     totalTokens,
 	}, nil
 }
 

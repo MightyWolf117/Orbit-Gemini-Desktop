@@ -39,6 +39,7 @@ struct Config {
 struct ChatMessage {
     id: i64,
     sender: String,
+    sender_name: Option<String>,
     text: String,
     timestamp: i64,
 }
@@ -603,6 +604,10 @@ struct Historial {
     created_at: String,
     nombre: String,
     code: i64,
+    is_group_chat: Option<bool>,
+    personality_ids: Option<Vec<String>>,
+    room_context: Option<String>,
+    max_auto_replies: Option<i32>,
 }
 
 #[tauri::command]
@@ -724,6 +729,10 @@ fn save_historial(app_handle: AppHandle, historial: Historial) -> Result<Histori
         if let Some(p) = historials.iter_mut().find(|p| p.id == new_hist.id) {
             p.nombre = new_hist.nombre.clone();
             p.code = new_hist.code;
+            p.is_group_chat = new_hist.is_group_chat.clone();
+            p.personality_ids = new_hist.personality_ids.clone();
+            p.room_context = new_hist.room_context.clone();
+            p.max_auto_replies = new_hist.max_auto_replies;
             new_hist = p.clone();
         } else {
             return Err("Historial not found".into());

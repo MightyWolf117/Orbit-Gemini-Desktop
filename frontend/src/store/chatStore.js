@@ -12,8 +12,14 @@ const useChatStore = create(
         title: h.nombre,
         titleGenerated: true,
         messages: [],
-        personalityId: null,
-        updatedAt: h.created_at
+        personalityId: h.code && h.code > 0 ? h.code.toString() : null,
+        isGroupChat: h.is_group_chat || false,
+        personalityIds: h.personality_ids || [],
+        roomContext: h.room_context || '',
+        maxAutoReplies: h.max_auto_replies || 0,
+        manualTargetId: null,
+        tokensUsage: 0,
+        updatedAt: new Date(h.created_at).getTime()
       }))
     }),
 
@@ -50,6 +56,31 @@ const useChatStore = create(
         titleGenerated: false,
         messages: [],
         personalityId: null,
+        isGroupChat: false,
+        personalityIds: [],
+        manualTargetId: null,
+        tokensUsage: 0,
+        updatedAt: Date.now()
+      };
+      return {
+        chats: [newChat, ...state.chats],
+        activeChatId: newChat.id
+      };
+    }),
+
+    createNewGroupChat: (selectedPersonalityIds) => set((state) => {
+      const newChat = {
+        id: Date.now().toString(),
+        title: 'Nueva Sala de Chat',
+        titleGenerated: false,
+        messages: [],
+        personalityId: null,
+        isGroupChat: true,
+        personalityIds: selectedPersonalityIds || [],
+        manualTargetId: null,
+        roomContext: '',
+        maxAutoReplies: 0,
+        tokensUsage: 0,
         updatedAt: Date.now()
       };
       return {
@@ -72,6 +103,36 @@ const useChatStore = create(
       const updatedChats = state.chats.map((chat) => {
         if (chat.id === chatId) {
           return { ...chat, personalityId, updatedAt: Date.now() };
+        }
+        return chat;
+      });
+      return { chats: updatedChats };
+    }),
+
+    updateChatManualTarget: (chatId, manualTargetId) => set((state) => {
+      const updatedChats = state.chats.map((chat) => {
+        if (chat.id === chatId) {
+          return { ...chat, manualTargetId, updatedAt: Date.now() };
+        }
+        return chat;
+      });
+      return { chats: updatedChats };
+    }),
+
+    updateRoomSettings: (chatId, roomContext, maxAutoReplies) => set((state) => {
+      const updatedChats = state.chats.map((chat) => {
+        if (chat.id === chatId) {
+          return { ...chat, roomContext, maxAutoReplies, updatedAt: Date.now() };
+        }
+        return chat;
+      });
+      return { chats: updatedChats };
+    }),
+
+    updateChatTokens: (chatId, tokensUsage) => set((state) => {
+      const updatedChats = state.chats.map((chat) => {
+        if (chat.id === chatId) {
+          return { ...chat, tokensUsage };
         }
         return chat;
       });

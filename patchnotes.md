@@ -1,6 +1,21 @@
-# 🚀 Orbit Desktop - Notas del Parche (Versión 1.2.1)
+# 🚀 Orbit Desktop - Notas del Parche (Versiones)
 
-## 🌟 Resumen de la Versión
+## 🌟 Versión 1.3.0 (Group Chats & Dev Console)
+
+### 👥 1. Sistema de "Group Chat Rooms" (Salas Grupales)
+- **Modal de Ajustes:** El ícono cerebral de la cabecera ahora permite abrir una configuración local para la sala, donde se inyecta un *Contexto y Reglas de Comportamiento*.
+- **Interacciones Contínuas:** Se ha habilitado un selector para definir un "Límite de Auto-Respuestas" (hasta 10). Las personalidades pueden interactuar automáticamente entre ellas por múltiples turnos sin requerir un nuevo prompt manual.
+- **Persistencia Robusta:** Se ha mejorado la serialización local (en Tauri/Rust) de los historiales, asegurando que los nombres de los bots, los ajustes del contexto y el contador de respuestas se guarden permanentemente al entrar y salir del chat.
+- **Advertencias de Tokens:** Nueva alerta visual indicando que el uso de chats grupales continuos consume un alto nivel de recursos y tokens de la API.
+
+### 🛠️ 2. Consola de Desarrollo Integrada
+- **Panel Flotante y Minimizable:** En *Ajustes > Desarrollador* puedes habilitar "Mostrar Consola". Esto habilita un **botón flotante** tipo terminal en la esquina de la pantalla. Al hacer clic, se expande un panel completo que persiste mientras navegas por la app.
+- **Logs Backend (SSE):** La consola escucha en tiempo real a `/api/logs/stream`, conectada directamente al motor interno de Go. Visualiza las peticiones de red (200 OK, 429, etc.) como si vieras la terminal cruda.
+- **Logs Frontend (React):** Todos los registros de la consola de herramientas de Chrome (`console.log`, `warn`, `error`) también se capturan y organizan en una pestaña separada del panel, permitiendo depurar problemas visuales sin abrir las DevTools.
+
+---
+
+## 🌟 Versión 1.2.1
 En la versión **1.2.1** de Orbit, hemos implementado una importante actualización arquitectónica en el sistema de reproducción multimedia y en el control de inteligencia de modelos de Google Gemini. Esta versión elimina por completo las interrupciones de audio en segundo plano, añade un elegante modo **Picture-in-Picture (PiP)**, incorpora búsqueda estructurada de vídeos y estrena un sistema proactivo de monitoreo de cuotas y alertas de uso de IA.
 
 ---

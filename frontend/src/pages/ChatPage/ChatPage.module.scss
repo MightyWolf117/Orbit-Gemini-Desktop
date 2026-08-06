@@ -101,6 +101,42 @@
   margin: 0 auto $spacing-sm;
   display: flex;
   justify-content: flex-start;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.memoryMarker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: $border-radius-full;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  color: $color-text-secondary;
+}
+
+.memoryIcon {
+  color: $color-primary;
+}
+
+.memoryBarContainer {
+  width: 60px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.memoryBarFill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.memoryText {
+  font-family: monospace;
 }
 
 .personalitySelector {
@@ -307,9 +343,46 @@
 
 .codeBlockPre {
   margin: 0;
-  padding: 12px;
+  padding: 15px;
+  background-color: #0d0d0d;
   overflow-x: auto;
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #d4d4d4;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+
+  code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+.saveBtn {
+  background-color: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #2563eb;
+  }
+}
+
+.cancelBtn {
+  background-color: transparent;
+  color: #a1a1aa;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #52525b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #e4e4e7;
+  }
 }

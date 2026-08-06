@@ -17,8 +17,8 @@ const SettingsPage = () => {
     bgBlur, bgOpacity, bgPath,
     userIconPath, userIconPosX, userIconPosY,
     aiIconPath, aiIconPosX, aiIconPosY,
-    basePath, resolvedBasePath, enableWsl, googleApiKey, enableSystemIntegration,
-    setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey, setEnableSystemIntegration,
+    basePath, resolvedBasePath, enableWsl, googleApiKey, enableSystemIntegration, enableDevConsole,
+    setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey, setEnableSystemIntegration, setEnableDevConsole,
     saveBgSettingsToBackend, saveIconSettingsToBackend, savePathConfigToBackend, loadPathConfigFromBackend, saveWslConfigToBackend, loadWslConfigFromBackend, saveApiConfigToBackend, resetSettings,
     availableModels, fetchModels, apiTier, setApiTier, resetModelsQuota
   } = useSettingsStore();
@@ -622,6 +622,26 @@ const SettingsPage = () => {
                     style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                   />
                   <span style={{ marginLeft: '8px', color: '#eee', fontWeight: '500' }}>Habilitar Integración</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className={styles.formGroup} style={{ marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <label className={styles.label} style={{ marginBottom: '4px' }}>Consola de Desarrollo (Logs)</label>
+                  <p className={styles.helpText} style={{ margin: 0, maxWidth: '80%' }}>
+                    Muestra un panel flotante con los logs del Frontend y del Backend (útil para depuración).
+                  </p>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', alignSelf: 'flex-start', marginTop: '6px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={enableDevConsole} 
+                    onChange={(e) => setEnableDevConsole(e.target.checked)} 
+                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                  />
+                  <span style={{ marginLeft: '8px', color: '#eee', fontWeight: '500' }}>Mostrar Consola</span>
                 </label>
               </div>
             </div>

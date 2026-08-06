@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon, AlertTriangle, Brain } from 'lucide-react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
 import { ENDPOINTS } from '../../service/api';
@@ -138,18 +138,24 @@ const CodeBlock = ({ language, code, onDownload, installedRuntimes }) => {
 const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefined;
 
 const ChatPage = () => {
-  const { chats, activeChatId, addMessage, setMessages, updateChatPersonality, updateChatTitle } = useChatStore();
+  const { chats, activeChatId, addMessage, setMessages, updateChatPersonality, updateChatTitle, updateChatTokens, updateChatManualTarget, updateRoomSettings } = useChatStore();
   const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey, enableSystemIntegration, availableModels, fetchModels, apiTier } = useSettingsStore();
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [personalities, setPersonalities] = useState([]);
   const [isSending, setIsSending] = useState(false);
+  const [autoRepliesLeft, setAutoRepliesLeft] = useState(0);
   const [installedRuntimes, setInstalledRuntimes] = useState(null);
   const messagesEndRef = useRef(null);
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [exportedPath, setExportedPath] = useState('');
+  
+  // Room Settings Modal State
+  const [isRoomSettingsOpen, setIsRoomSettingsOpen] = useState(false);
+  const [tempRoomContext, setTempRoomContext] = useState('');
+  const [tempMaxAutoReplies, setTempMaxAutoReplies] = useState(0);
 
   const activeChat = chats.find(c => c.id === activeChatId);
   const messages = activeChat?.messages || [];
@@ -173,7 +179,11 @@ const ChatPage = () => {
         try {
           const loaded = await invoke('get_chat_messages', { chatCode: parseInt(activeChatId) });
           if (loaded && loaded.length > 0) {
-            setMessages(activeChatId, loaded);
+            const mappedMessages = loaded.map(msg => ({
+              ...msg,
+              senderName: msg.sender_name || msg.senderName
+            }));
+            setMessages(activeChatId, mappedMessages);
           }
         } catch (e) {
           console.error("Error loading local messages:", e);
@@ -207,6 +217,15 @@ const ChatPage = () => {
     };
     fetchPersonalities();
   }, []);
+
+  useEffect(() => {
+    if (autoRepliesLeft > 0 && !isSending && activeChat?.isGroupChat) {
+      const timer = setTimeout(() => {
+        handleSend(null, true);
+      }, 1500); // Pequeña pausa para que se sienta más natural
+      return () => clearTimeout(timer);
+    }
+  }, [autoRepliesLeft, isSending, activeChat?.isGroupChat]);
 
   // Fetch installed runtimes for CodeBlock warnings
   useEffect(() => {
@@ -392,55 +411,78 @@ const ChatPage = () => {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    const hasReadyAttachments = attachments.some(a => a.status === 'ready');
-    if ((!inputValue.trim() && !hasReadyAttachments) || !activeChatId || isSending) return;
+  const handleSend = async (e, isAutoReply = false) => {
+    if (e) e.preventDefault();
+    
+    let currentMessages = [...messages];
+    let userMessage = null;
+    let apiAttachments = [];
 
-    // Verificar si hay adjuntos con error o procesando
-    if (attachments.some(a => a.status === 'processing' || a.status === 'uploading')) {
-      alert('Espera a que los archivos terminen de procesarse o subirse.');
-      return;
-    }
+    if (!isAutoReply) {
+      const hasReadyAttachments = attachments.some(a => a.status === 'ready');
+      if ((!inputValue.trim() && !hasReadyAttachments) || !activeChatId || isSending) return;
 
-    const userText = inputValue;
-    setInputValue('');
-    setIsSending(true);
-
-    // Preparar adjuntos para el backend
-    const apiAttachments = attachments.filter(a => a.status === 'ready').map(a => ({
-      mime_type: a.mimeType,
-      data: a.data,
-      file_uri: a.uri
-    }));
-
-    // Guardamos estado local de adjuntos para mostrarlos en el UI temporalmente (no persistido en BD local por ahora)
-    const localAttachmentsUI = attachments.map(a => ({ name: a.name, isImage: a.mimeType.startsWith('image/'), localPath: a.path }));
-    setAttachments([]);
-
-    const userMessage = { sender: 'user', text: userText, uiAttachments: localAttachmentsUI };
-    addMessage(activeChatId, userMessage);
-
-    if (isTauri) {
-      try {
-        await invoke('save_chat_message', {
-          chatCode: parseInt(activeChatId),
-          messageOrder: messages.length + 1,
-          message: { id: Date.now(), timestamp: Date.now(), ...userMessage }
-        });
-      } catch (e) {
-        console.error("Error saving user message locally:", e);
+      // Verificar si hay adjuntos con error o procesando
+      if (attachments.some(a => a.status === 'processing' || a.status === 'uploading')) {
+        alert('Espera a que los archivos terminen de procesarse o subirse.');
+        return;
       }
+
+      const userText = inputValue;
+      setInputValue('');
+      setIsSending(true);
+      
+      // Reiniciar contador de auto-respuestas si es un mensaje de usuario en grupo
+      if (activeChat?.isGroupChat) {
+        setAutoRepliesLeft(activeChat.maxAutoReplies || 0);
+      } else {
+        setAutoRepliesLeft(0);
+      }
+
+      // Preparar adjuntos para el backend
+      apiAttachments = attachments.filter(a => a.status === 'ready').map(a => ({
+        mime_type: a.mimeType,
+        data: a.data,
+        file_uri: a.uri
+      }));
+
+      // Guardamos estado local de adjuntos para mostrarlos en el UI temporalmente
+      const localAttachmentsUI = attachments.map(a => ({ name: a.name, isImage: a.mimeType.startsWith('image/'), localPath: a.path }));
+      setAttachments([]);
+
+      userMessage = { sender: 'user', text: userText, uiAttachments: localAttachmentsUI };
+      addMessage(activeChatId, userMessage);
+      currentMessages.push(userMessage);
+
+      if (isTauri) {
+        try {
+          await invoke('save_chat_message', {
+            chatCode: parseInt(activeChatId),
+            messageOrder: messages.length + 1,
+            message: { 
+              id: Date.now(), 
+              timestamp: Date.now(), 
+              sender: userMessage.sender,
+              sender_name: null,
+              text: userMessage.text 
+            }
+          });
+        } catch (e) {
+          console.error("Error saving user message locally:", e);
+        }
+      }
+    } else {
+      setIsSending(true);
     }
 
-    // Construir historial para la API
-    const apiMessages = [...messages, userMessage].map((msg, idx) => {
+    // Construir historial para la API usando currentMessages
+    const apiMessages = currentMessages.map((msg, idx) => {
       // Solo enviamos los adjuntos del mensaje actual
-      const isLastMessage = idx === messages.length;
+      const isLastMessage = idx === currentMessages.length - 1;
       return {
         role: msg.sender === 'user' ? 'user' : 'model',
         content: msg.text || (msg.uiAttachments?.length > 0 ? "[Adjuntos enviados]" : ""),
-        attachments: isLastMessage ? apiAttachments : []
+        attachments: isLastMessage && !isAutoReply ? apiAttachments : []
       };
     });
 
@@ -449,6 +491,18 @@ const ChatPage = () => {
     const personalityPrompt = selectedPersonality ? selectedPersonality.instrucciones : '';
     const useSystemTools = enableSystemIntegration && selectedPersonality?.enable_system_tools;
 
+    let groupPersonalities = [];
+    if (activeChat?.isGroupChat) {
+      groupPersonalities = activeChat.personalityIds.map(id => {
+        const p = personalities.find(pers => pers.id.toString() === id);
+        return {
+          id: p?.id.toString() || "",
+          name: p?.nombre || "",
+          instructions: p?.instrucciones || ""
+        };
+      }).filter(p => p.id !== "");
+    }
+
     const payload = {
       messages: apiMessages,
       personality_prompt: personalityPrompt,
@@ -456,7 +510,11 @@ const ChatPage = () => {
       chat_code: parseInt(activeChatId),
       model: aiModel,
       temperature: parseFloat(temperature),
-      enable_system_tools: useSystemTools || false
+      enable_system_tools: useSystemTools || false,
+      is_group_chat: activeChat?.isGroupChat || false,
+      group_personalities: groupPersonalities,
+      manual_target: activeChat?.manualTargetId || "",
+      room_context: activeChat?.roomContext || ""
     };
 
     try {
@@ -472,15 +530,28 @@ const ChatPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-        const aiMessage = { sender: 'ai', text: data.response };
+        const aiMessage = { 
+          sender: 'ai', 
+          text: data.response,
+          senderName: data.responder_name || ''
+        };
         addMessage(activeChatId, aiMessage);
+        if (data.total_tokens !== undefined) {
+          updateChatTokens(activeChatId, data.total_tokens);
+        }
         
         if (isTauri) {
           try {
             await invoke('save_chat_message', {
               chatCode: parseInt(activeChatId),
               messageOrder: messages.length + 2,
-              message: { id: Date.now(), timestamp: Date.now(), ...aiMessage }
+              message: { 
+                id: Date.now(), 
+                timestamp: Date.now(), 
+                sender: aiMessage.sender,
+                sender_name: aiMessage.senderName,
+                text: aiMessage.text 
+              }
             });
           } catch (e) {
             console.error("Error saving AI message locally:", e);
@@ -494,7 +565,11 @@ const ChatPage = () => {
                 id: activeChat.dbId || 0,
                 created_at: "", 
                 nombre: data.title,
-                code: parseInt(activeChatId)
+                code: parseInt(activeChatId),
+                is_group_chat: activeChat.isGroupChat || false,
+                personality_ids: activeChat.personalityIds || [],
+                room_context: activeChat.roomContext || '',
+                max_auto_replies: activeChat.maxAutoReplies || 0
               }
             });
             updateChatTitle(activeChatId, data.title, savedHist.id);
@@ -505,6 +580,12 @@ const ChatPage = () => {
         } else if (data.title && !activeChat.titleGenerated) {
             updateChatTitle(activeChatId, data.title, null);
         }
+
+        // Si es autoReply, decrementar contador
+        if (activeChat?.isGroupChat && isAutoReply) {
+          setAutoRepliesLeft(prev => prev > 0 ? prev - 1 : 0);
+        }
+
       } else {
         const errData = await response.json();
         addMessage(activeChatId, {
@@ -523,16 +604,24 @@ const ChatPage = () => {
     }
   };
 
-  const renderAvatar = (sender) => {
+  const renderAvatar = (sender, senderName) => {
     const isUser = sender === 'user';
     let path = isUser ? userIconPath : aiIconPath;
     let isPersonalityImage = false;
 
-    if (!isUser && selectedPersonalityId) {
-      const personality = personalities.find(p => p.id === parseInt(selectedPersonalityId));
-      if (personality && personality.localImageUrl) {
-        path = personality.localImageUrl;
-        isPersonalityImage = true;
+    if (!isUser) {
+      if (senderName && activeChat?.isGroupChat) {
+        const personality = personalities.find(p => p.nombre === senderName);
+        if (personality && personality.localImageUrl) {
+          path = personality.localImageUrl;
+          isPersonalityImage = true;
+        }
+      } else if (selectedPersonalityId) {
+        const personality = personalities.find(p => p.id === parseInt(selectedPersonalityId));
+        if (personality && personality.localImageUrl) {
+          path = personality.localImageUrl;
+          isPersonalityImage = true;
+        }
       }
     }
 
@@ -581,11 +670,11 @@ const ChatPage = () => {
               className={`${styles.messageWrapper} ${msg.sender === 'user' ? styles.user : styles.ai}`}
             >
               <div className={styles.avatar}>
-                {renderAvatar(msg.sender)}
+                {renderAvatar(msg.sender, msg.senderName)}
               </div>
               <div className={styles.messageContent}>
                 <div className={styles.senderName}>
-                  {msg.sender === 'user' ? 'Tú' : agentName}
+                  {msg.sender === 'user' ? 'Tú' : (msg.senderName && activeChat?.isGroupChat ? msg.senderName : (activeChat?.isGroupChat ? 'Orquestador IA' : agentName))}
                 </div>
                 <div className={styles.text}>
                   {msg.uiAttachments && msg.uiAttachments.length > 0 && (
@@ -683,20 +772,67 @@ const ChatPage = () => {
 
       <div className={styles.inputArea}>
         <div className={styles.inputHeader}>
-          <div className={styles.personalitySelector}>
-            <Bot size={14} className={styles.selectorIcon} />
-            <select 
-              value={selectedPersonalityId} 
-              onChange={(e) => updateChatPersonality(activeChatId, e.target.value)}
-              className={styles.selectNative}
+          {activeChat && (
+            <div 
+              className={styles.memoryMarker} 
+              title={activeChat?.isGroupChat ? "Consumo de memoria / tokens (Clic para Ajustes de Sala)" : "Consumo de memoria / tokens"}
+              onClick={() => {
+                if (activeChat?.isGroupChat) {
+                  setTempRoomContext(activeChat.roomContext || '');
+                  setTempMaxAutoReplies(activeChat.maxAutoReplies || 0);
+                  setIsRoomSettingsOpen(true);
+                }
+              }}
+              style={{ cursor: activeChat?.isGroupChat ? 'pointer' : 'default' }}
             >
-              <option value="">Personalidad por defecto</option>
-              {personalities.map(p => (
-                <option key={p.id} value={p.id}>{p.nombre}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className={styles.chevron} />
-          </div>
+              <Brain size={14} className={styles.memoryIcon} />
+              <div className={styles.memoryBarContainer}>
+                <div 
+                  className={styles.memoryBarFill} 
+                  style={{ 
+                    width: `${Math.min(100, ((activeChat.tokensUsage || 0) / 1000000) * 100)}%`,
+                    backgroundColor: (activeChat.tokensUsage || 0) > 800000 ? '#ef4444' : (activeChat.tokensUsage || 0) > 500000 ? '#f59e0b' : '#3b82f6'
+                  }}
+                />
+              </div>
+              <span className={styles.memoryText}>
+                {(activeChat.tokensUsage || 0).toLocaleString()} / 1M
+              </span>
+            </div>
+          )}
+          {activeChat?.isGroupChat ? (
+            <div className={styles.personalitySelector} title="Elegir quién responde al siguiente mensaje">
+              <Bot size={14} className={styles.selectorIcon} />
+              <select 
+                value={activeChat?.manualTargetId || ""} 
+                onChange={(e) => updateChatManualTarget(activeChatId, e.target.value)}
+                className={styles.selectNative}
+              >
+                <option value="">Automático (Orquestador IA)</option>
+                {activeChat.personalityIds.map(id => {
+                  const p = personalities.find(pers => pers.id.toString() === id);
+                  if (!p) return null;
+                  return <option key={p.id} value={p.id.toString()}>Responder: {p.nombre}</option>;
+                })}
+              </select>
+              <ChevronDown size={14} className={styles.chevron} />
+            </div>
+          ) : (
+            <div className={styles.personalitySelector}>
+              <Bot size={14} className={styles.selectorIcon} />
+              <select 
+                value={selectedPersonalityId} 
+                onChange={(e) => updateChatPersonality(activeChatId, e.target.value)}
+                className={styles.selectNative}
+              >
+                <option value="">Personalidad por defecto</option>
+                {personalities.map(p => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className={styles.chevron} />
+            </div>
+          )}
           <button className={styles.exportBtn} onClick={() => setExportModalOpen(true)} title="Exportar Conversación">
             <Download size={14} /> Descargar Chat
           </button>
@@ -814,6 +950,75 @@ const ChatPage = () => {
         }
       >
         <p>El archivo se ha guardado correctamente en tu carpeta de descargas de la aplicación.</p>
+      </Modal>
+      <Modal 
+        isOpen={isRoomSettingsOpen} 
+        onClose={() => setIsRoomSettingsOpen(false)}
+        title="Ajustes de Sala Grupal"
+        actions={
+          <>
+            <button className={styles.cancelBtn} onClick={() => setIsRoomSettingsOpen(false)}>Cancelar</button>
+            <button 
+              className={styles.saveBtn} 
+              onClick={() => {
+                updateRoomSettings(activeChatId, tempRoomContext, tempMaxAutoReplies);
+                setIsRoomSettingsOpen(false);
+                // Si el chat tiene DB ID, también persistimos el título/settings aquí
+                if (activeChat?.dbId && isTauri && window.__TAURI_IPC__) {
+                  import('@tauri-apps/api/tauri').then(({ invoke }) => {
+                    invoke('save_historial', {
+                      historial: {
+                        id: activeChat.dbId,
+                        created_at: "", 
+                        nombre: activeChat.title,
+                        code: parseInt(activeChatId),
+                        is_group_chat: activeChat.isGroupChat || false,
+                        personality_ids: activeChat.personalityIds || [],
+                        room_context: tempRoomContext,
+                        max_auto_replies: tempMaxAutoReplies
+                      }
+                    }).catch(e => console.error("Error saving room settings", e));
+                  }).catch(err => console.error("Error importando tauri", err));
+                }
+              }}
+            >
+              Guardar Ajustes
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', color: '#e4e4e7', fontSize: '0.9rem' }}>Contexto y Reglas de la Sala</label>
+            <textarea 
+              value={tempRoomContext}
+              onChange={(e) => setTempRoomContext(e.target.value)}
+              placeholder="Ej. Están en una taberna medieval..."
+              style={{ width: '100%', height: '80px', padding: '10px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid #333' }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', color: '#e4e4e7', fontSize: '0.9rem' }}>
+              Límite de Respuestas Continuas (Orquestador Automático)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <input 
+                type="range" 
+                min="0" max="10" 
+                value={tempMaxAutoReplies}
+                onChange={(e) => setTempMaxAutoReplies(parseInt(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ color: '#4ade80', fontWeight: 'bold' }}>{tempMaxAutoReplies}</span>
+            </div>
+            {tempMaxAutoReplies > 0 && (
+              <div style={{ marginTop: '10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '10px', borderRadius: '6px', fontSize: '0.85rem', color: '#fca5a5' }}>
+                <AlertTriangle size={14} style={{ display: 'inline', marginRight: '5px', verticalAlign: 'middle' }} />
+                <strong>Advertencia:</strong> Permitir respuestas continuas significa que la IA responderá automáticamente hasta alcanzar este límite. ¡Esto puede consumir tokens muy rápidamente!
+              </div>
+            )}
+          </div>
+        </div>
       </Modal>
     </div>
   );

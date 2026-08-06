@@ -1,0 +1,160 @@
+@use '../../../styles/variables' as *;
+
+.consoleOverlay {
+  position: fixed;
+  bottom: 0;
+  right: 20px;
+  width: 450px;
+  height: 50vh;
+  min-height: 300px;
+  background-color: $color-bg-surface;
+  border-top-left-radius: $border-radius-md;
+  border-top-right-radius: $border-radius-md;
+  border: 1px solid $color-border;
+  border-bottom: none;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+
+  &.open {
+    transform: translateY(0);
+  }
+}
+
+.consoleContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.consoleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-xs $spacing-sm;
+  background-color: darken(#24242B, 3%);
+  border-bottom: 1px solid $color-border;
+  border-top-left-radius: $border-radius-md;
+  border-top-right-radius: $border-radius-md;
+}
+
+.tabs {
+  display: flex;
+  gap: $spacing-xs;
+}
+
+.tabBtn {
+  background: transparent;
+  border: none;
+  color: $color-text-secondary;
+  padding: $spacing-xs $spacing-sm;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: $border-radius-sm;
+  font-weight: 500;
+  transition: all 0.2s;
+
+  &:hover {
+    color: $color-text-primary;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  &.active {
+    color: $color-primary;
+    background-color: rgba(82, 113, 255, 0.1);
+  }
+}
+
+.headerActions {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+}
+
+.actionBtn, .closeBtn {
+  background: transparent;
+  border: none;
+  color: $color-text-secondary;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: $color-text-primary;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.closeBtn:hover {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.consoleBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-sm;
+  background-color: #0d0d0d; // Color bien oscuro tipo terminal
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.emptyState {
+  color: $color-text-muted;
+  text-align: center;
+  margin-top: $spacing-xl;
+  font-style: italic;
+}
+
+.logEntry {
+  padding: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  word-break: break-all;
+  white-space: pre-wrap;
+  line-height: 1.4;
+
+  &.log {
+    color: #e4e4e7;
+  }
+  &.warn {
+    color: #fbbf24;
+    background-color: rgba(251, 191, 36, 0.05);
+  }
+  &.error {
+    color: #f87171;
+    background-color: rgba(248, 113, 113, 0.05);
+  }
+}
+
+.floatingBtn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: $color-primary;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    transform: scale(1.1);
+    background-color: lighten($color-primary, 10%);
+  }
+}

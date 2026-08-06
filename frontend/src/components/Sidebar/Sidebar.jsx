@@ -36,7 +36,11 @@ const Sidebar = () => {
             id: chat.dbId || 0,
             created_at: chat.updatedAt || "", // Fallback
             nombre: newTitle,
-            code: parseInt(chat.id)
+            code: parseInt(chat.id),
+            is_group_chat: chat.isGroupChat || false,
+            personality_ids: chat.personalityIds || [],
+            room_context: chat.roomContext || '',
+            max_auto_replies: chat.maxAutoReplies || 0
           }
         });
       } catch (e) {

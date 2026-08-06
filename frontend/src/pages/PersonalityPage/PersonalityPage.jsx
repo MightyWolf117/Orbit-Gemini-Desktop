@@ -4,6 +4,8 @@ import Modal from '../../components/common/Modal/Modal';
 import { invoke, convertFileSrc } from '@tauri-apps/api/tauri';
 import useSettingsStore from '../../store/settingsStore';
 import { ENDPOINTS } from '../../service/api';
+import { useNavigate } from 'react-router-dom';
+import useChatStore from '../../store/chatStore';
 import styles from './PersonalityPage.module.scss';
 
 const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefined;
@@ -11,6 +13,8 @@ const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefi
 const PersonalityPage = () => {
   const [personalities, setPersonalities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { createNewGroupChat } = useChatStore();
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,6 +24,10 @@ const PersonalityPage = () => {
   const [formData, setFormData] = useState({ nombre: '', descripcion_corta: '', instrucciones: '', image: null, enable_system_tools: false });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+
+  // Group Chat Modal
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [selectedGroupPersonalities, setSelectedGroupPersonalities] = useState([]);
 
   const { enableSystemIntegration } = useSettingsStore();
 
@@ -157,10 +165,16 @@ const PersonalityPage = () => {
           <h1 className={styles.title}>Personalidades de IA</h1>
           <p className={styles.subtitle}>Define el comportamiento y el rol de tus agentes.</p>
         </div>
-        <button className={styles.primaryBtn} onClick={openNewModal}>
-          <PlusCircle size={20} />
-          Crear Personalidad
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className={styles.secondaryBtn} onClick={() => setIsGroupModalOpen(true)} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #4ade80', background: 'transparent', color: '#4ade80', cursor: 'pointer'}}>
+            <UserCircle size={20} />
+            Crear Sala Grupal
+          </button>
+          <button className={styles.primaryBtn} onClick={openNewModal}>
+            <PlusCircle size={20} />
+            Crear Personalidad
+          </button>
+        </div>
       </header>
 
       {loading ? (
@@ -290,6 +304,53 @@ const PersonalityPage = () => {
         }
       >
         <p>{alert.message}</p>
+      </Modal>
+
+    {/* Modal Crear Sala Grupal */}
+      <Modal 
+        isOpen={isGroupModalOpen} 
+        onClose={() => setIsGroupModalOpen(false)}
+        title="Crear Sala de Chat Grupal"
+        disableOverlayClick={true}
+        actions={
+          <>
+            <button className={styles.cancelBtn} onClick={() => setIsGroupModalOpen(false)}>Cancelar</button>
+            <button 
+              className={styles.saveBtn} 
+              onClick={() => {
+                if (selectedGroupPersonalities.length < 2) {
+                  setAlert({ isOpen: true, title: 'Error', message: 'Selecciona al menos 2 personalidades para la sala.', isError: true });
+                  return;
+                }
+                createNewGroupChat(selectedGroupPersonalities);
+                setIsGroupModalOpen(false);
+                navigate('/');
+              }}
+            >
+              Iniciar Chat
+            </button>
+          </>
+        }
+      >
+        <p style={{marginBottom: '16px', fontSize: '0.9rem', color: '#a1a1aa'}}>Selecciona las personalidades que participarán en esta sala:</p>
+        <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+          {personalities.map(p => (
+            <label key={p.id} style={{display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', cursor: 'pointer'}}>
+              <input 
+                type="checkbox" 
+                checked={selectedGroupPersonalities.includes(p.id.toString())}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedGroupPersonalities([...selectedGroupPersonalities, p.id.toString()]);
+                  } else {
+                    setSelectedGroupPersonalities(selectedGroupPersonalities.filter(id => id !== p.id.toString()));
+                  }
+                }}
+              />
+              <span style={{color: '#e4e4e7'}}>{p.nombre}</span>
+            </label>
+          ))}
+        </div>
       </Modal>
 
     </div>

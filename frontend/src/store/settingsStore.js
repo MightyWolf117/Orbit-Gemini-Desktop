@@ -35,9 +35,13 @@ const useSettingsStore = create(
       aiIconPosX: 50,
       aiIconPosY: 50,
       
+      // Ajustes de consola
+      enableDevConsole: false,
+      
       setTheme: (theme) => set({ theme }),
       setAiModel: (model) => set({ aiModel: model }),
       setTemperature: (temp) => set({ temperature: temp }),
+      setEnableDevConsole: (enabled) => set({ enableDevConsole: enabled }),
       setBasePath: (path) => set({ basePath: path }),
       setResolvedBasePath: (path) => set({ resolvedBasePath: path }),
       setEnableWsl: (enabled) => set({ enableWsl: enabled }),
