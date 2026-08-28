@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { PlusCircle, Settings, MessageSquare, Trash2, Users, Edit2, Check, X, FileText, Music } from 'lucide-react';
+import { PlusCircle, Settings, MessageSquare, Trash2, Users, Edit2, Check, X, FileText, Music, FolderPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
@@ -9,13 +9,14 @@ import Modal from '../../components/common/Modal/Modal';
 import styles from './Sidebar.module.scss';
 
 const Sidebar = () => {
-  const { chats, setChats, activeChatId, setActiveChat, createNewChat, deleteChat, updateChatTitle } = useChatStore();
+  const { chats, setChats, activeChatId, setActiveChat, createNewChat, deleteChat, updateChatTitle, updateChatProject } = useChatStore();
   const { isOnline, checkHealth } = useSettingsStore();
   const { toggleExpanded } = useMediaStore();
   const location = useLocation();
   const [editingChatId, setEditingChatId] = useState(null);
   const [editTitleValue, setEditTitleValue] = useState("");
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, chat: null });
+  const [projectModal, setProjectModal] = useState({ isOpen: false, chat: null, projectName: "" });
 
   const handleSaveTitle = async (chat) => {
     if (!editTitleValue.trim() || editTitleValue === chat.title) {
@@ -48,6 +49,38 @@ const Sidebar = () => {
       }
     }
     setEditingChatId(null);
+  };
+
+  const handleAssignProject = async () => {
+    const chat = projectModal.chat;
+    const projectName = projectModal.projectName.trim();
+    if (!chat) return;
+
+    updateChatProject(chat.id, projectName || null, chat.projectContext || null);
+
+    if (typeof window !== 'undefined' && window.__TAURI_IPC__) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/tauri');
+        await invoke('save_historial', {
+          historial: {
+            id: chat.dbId || 0,
+            created_at: chat.updatedAt || "",
+            nombre: chat.title || 'Chat sin título',
+            code: parseInt(chat.id),
+            is_group_chat: chat.isGroupChat || false,
+            personality_ids: chat.personalityIds || [],
+            room_context: chat.roomContext || '',
+            max_auto_replies: chat.maxAutoReplies || 0,
+            project_id: projectName || null,
+            project_context: chat.projectContext || null
+          }
+        });
+      } catch (e) {
+        console.error("Error updating project locally", e);
+      }
+    }
+
+    setProjectModal({ isOpen: false, chat: null, projectName: "" });
   };
 
   const handleNewChat = () => {
@@ -110,10 +143,24 @@ const Sidebar = () => {
 
       <div className={styles.chatList}>
         <div className={styles.listTitle}>Historial</div>
-        {chats.map((chat) => (
-          <div 
-            key={chat.id} 
-            className={`${styles.chatItem} ${activeChatId === chat.id && location.pathname === '/' ? styles.active : ''}`}
+        
+        {/* Agrupamiento por Proyectos */}
+        {Object.entries(
+          chats.reduce((acc, chat) => {
+            const project = chat.projectId || 'General';
+            if (!acc[project]) acc[project] = [];
+            acc[project].push(chat);
+            return acc;
+          }, {})
+        ).map(([projectName, projectChats]) => (
+          <div key={projectName} style={{ marginBottom: '10px' }}>
+            <div style={{ fontSize: '12px', color: '#8b5cf6', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>
+              📁 {projectName}
+            </div>
+            {projectChats.map((chat) => (
+              <div 
+                key={chat.id} 
+                className={`${styles.chatItem} ${activeChatId === chat.id && location.pathname === '/' ? styles.active : ''}`}
             onClick={() => {
               if (editingChatId !== chat.id) setActiveChat(chat.id);
             }}
@@ -167,6 +214,17 @@ const Sidebar = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
+                      setProjectModal({ isOpen: true, chat, projectName: chat.projectId || "" });
+                    }}
+                    title="Asignar Proyecto"
+                  >
+                    <FolderPlus size={16} />
+                  </button>
+                  <button 
+                    className={styles.deleteBtn} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
                       setDeleteModal({ isOpen: true, chat });
                     }}
                     title="Eliminar chat"
@@ -176,6 +234,8 @@ const Sidebar = () => {
                 </div>
               </>
             )}
+          </div>
+            ))}
           </div>
         ))}
         {chats.length === 0 && (
@@ -248,7 +308,45 @@ const Sidebar = () => {
           </div>
         }
       >
-        <p>¿Estás seguro de que deseas eliminar permanentemente el chat <strong>{deleteModal.chat?.title || 'sin título'}</strong>?</p>
+        <p style={{ color: '#d1d5db', fontSize: '14px' }}>
+          ¿Estás seguro de que deseas eliminar este chat? Esta acción no se puede deshacer.
+        </p>
+      </Modal>
+
+      <Modal 
+        isOpen={projectModal.isOpen} 
+        onClose={() => setProjectModal({ isOpen: false, chat: null, projectName: "" })}
+        title="Asignar Proyecto"
+        actions={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #555', background: 'transparent', color: '#fff', cursor: 'pointer' }}
+              onClick={() => setProjectModal({ isOpen: false, chat: null, projectName: "" })}
+            >
+              Cancelar
+            </button>
+            <button 
+              style={{ padding: '8px 16px', borderRadius: '4px', border: 'none', background: '#a855f7', color: '#fff', cursor: 'pointer' }}
+              onClick={handleAssignProject}
+            >
+              Guardar
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <p style={{ color: '#d1d5db', fontSize: '14px', margin: 0 }}>
+            Escribe el nombre del proyecto o carpeta al que pertenecerá este chat. Déjalo en blanco para moverlo a General.
+          </p>
+          <input 
+            type="text"
+            value={projectModal.projectName}
+            onChange={(e) => setProjectModal(prev => ({ ...prev, projectName: e.target.value }))}
+            placeholder="Nombre del Proyecto"
+            style={{ padding: '10px', borderRadius: '6px', border: '1px solid #4b5563', background: '#1f2937', color: '#f3f4f6' }}
+            autoFocus
+          />
+        </div>
       </Modal>
     </div>
   );

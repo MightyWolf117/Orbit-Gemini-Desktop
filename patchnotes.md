@@ -1,3 +1,28 @@
+﻿# 🪐 Orbit (Anteriormente Gemini Desktop)
+## Notas de la Versión - v1.4.0
+
+¡Bienvenido a la evolución de nuestro asistente! Con la versión **1.4.0**, dejamos atrás el nombre "Gemini Desktop" para transformarnos en **Orbit**, un Hub central de agentes de inteligencia artificial y herramientas unificadas, expandiendo horizontes más allá de un solo modelo. 
+
+Esta es la actualización más ambiciosa orientada a la flexibilidad, accesibilidad y organización:
+
+## 🗣️ 1. Interacciones de Voz Nativas (Speech & Audio)
+- **Dictado por Voz (Speech-to-Text):** Ya no tienes que teclear tus largos prompts. Un nuevo botón en el chat te permite dictar tus comandos usando el reconocimiento de voz del sistema (Web Speech API).
+- **Lectura Automática (Text-to-Speech):** Añadimos un modo de "Lectura". Cuando está activo, Orbit sintetizará y leerá en voz alta las respuestas que generen tus agentes IA de manera fluida, ideal para accesibilidad y multitarea.
+
+## 🖼️ 2. Soporte de Multimedia IA Avanzado
+- **Renderizado de Imágenes:** Orbit ahora es capaz de interpretar si el agente te responde con contenido visual (ej. URLs de imágenes) renderizando un contenedor nativo dentro de la interfaz a través de MediaCard, en vez de solo devolver texto.
+
+## 📁 3. Organización y Proyectos
+- **Sistema de Proyectos:** Ya puedes agrupar tus historiales de chat por "Proyectos" o carpetas, directamente desde la barra lateral.
+- **Contexto de Proyecto Compartido:** Además del contexto global, cada proyecto puede inyectar contexto adicional que afecta únicamente a las conversaciones dentro de él. (Desarrollo funcional bajo el capó).
+
+## 🚀 4. Integración Multi-Modelo (OpenAI, Anthropic & Más)
+- **Agnosticismo de Modelos:** El motor interno fue reescrito para no depender exclusivamente de la API de Gemini. 
+- **Integración de Claves:** Se añadió soporte a nivel interfaz y base de datos para registrar claves API de OpenAI y Anthropic, expandiendo las opciones de modelo a elegir.
+- **Renombre de Identidad:** Todas las referencias a "Gemini Desktop" en la plataforma, repo y guías han sido actualizadas a **Orbit** para reflejar esta nueva etapa agnóstica de proveedores.
+
+---
+
 # 🚀 Orbit Desktop - Notas del Parche (Versiones)
 
 ## 🌟 Versión 1.3.0 (Group Chats & Dev Console)
@@ -65,3 +90,4 @@ En la versión **1.2.1** de Orbit, hemos implementado una importante actualizaci
 
 ## 📥 Instrucciones de Actualización (Tauri Auto-Updater)
 Al instalar o distribuir esta versión, recuerda que el archivo [tauri.conf.json](file:///c:/Users/juanp/OneDrive/Escritorio/gemini-escritorio/Gemini-Desktop/frontend/src-tauri/tauri.conf.json), [package.json](file:///c:/Users/juanp/OneDrive/Escritorio/gemini-escritorio/Gemini-Desktop/frontend/package.json) y `Cargo.toml` ya se encuentran sincronizados en la versión **`1.2.1`**. Los usuarios con versiones anteriores (`1.2.0` o inferiores) recibirán la notificación de actualización automática de forma nativa en su cliente de escritorio Orbit.
+

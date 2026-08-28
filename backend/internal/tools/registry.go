@@ -8,6 +8,14 @@ import (
 func GetExternalDeclarations() []*genai.FunctionDeclaration {
 	return []*genai.FunctionDeclaration{
 		{
+			Name:        "get_disk_usage",
+			Description: "Obtiene la informacion del espacio total y libre de los discos locales del sistema.",
+		},
+		{
+			Name:        "get_large_apps",
+			Description: "Obtiene la lista de las aplicaciones instaladas que mas espacio de almacenamiento ocupan en el sistema.",
+		},
+		{
 			Name:        "search_web_duckduckgo",
 			Description: "Busca información en internet en tiempo real usando el motor libre DuckDuckGo. Ideal para noticias actuales o documentación.",
 			Parameters: &genai.Schema{
@@ -183,6 +191,14 @@ func ExecuteExternalTool(funcName string, args map[string]any) (string, error, b
 	case "get_currency_rate":
 		res, err := GetCurrencyRate(getStringArg(args, "from"), getStringArg(args, "to"))
 		return res, err, true
+	case "get_disk_usage":
+		res, err := GetDiskUsage()
+		return res, err, true
+	case "get_large_apps":
+		res, err := GetLargeApps()
+		return res, err, true
 	}
 	return "", nil, false
 }
+
+

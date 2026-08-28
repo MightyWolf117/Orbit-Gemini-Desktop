@@ -17,6 +17,8 @@ const useChatStore = create(
         personalityIds: h.personality_ids || [],
         roomContext: h.room_context || '',
         maxAutoReplies: h.max_auto_replies || 0,
+        projectId: h.project_id || null,
+        projectContext: h.project_context || null,
         manualTargetId: null,
         tokensUsage: 0,
         updatedAt: new Date(h.created_at).getTime()
@@ -133,6 +135,16 @@ const useChatStore = create(
       const updatedChats = state.chats.map((chat) => {
         if (chat.id === chatId) {
           return { ...chat, tokensUsage };
+        }
+        return chat;
+      });
+      return { chats: updatedChats };
+    }),
+
+    updateChatProject: (chatId, projectId, projectContext) => set((state) => {
+      const updatedChats = state.chats.map((chat) => {
+        if (chat.id === chatId) {
+          return { ...chat, projectId, projectContext, updatedAt: Date.now() };
         }
         return chat;
       });

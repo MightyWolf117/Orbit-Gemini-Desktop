@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon, AlertTriangle, Brain } from 'lucide-react';
+import { Send, Bot, User, ChevronDown, Download, Paperclip, X, FileText, Image as ImageIcon, AlertTriangle, Brain, Mic, MicOff, Volume2, VolumeX, StopCircle } from 'lucide-react';
 import useChatStore from '../../store/chatStore';
 import useSettingsStore from '../../store/settingsStore';
 import { ENDPOINTS } from '../../service/api';
@@ -139,7 +139,20 @@ const isTauri = typeof window !== 'undefined' && window.__TAURI_IPC__ !== undefi
 
 const ChatPage = () => {
   const { chats, activeChatId, addMessage, setMessages, updateChatPersonality, updateChatTitle, updateChatTokens, updateChatManualTarget, updateRoomSettings } = useChatStore();
-  const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey, enableSystemIntegration, availableModels, fetchModels, apiTier } = useSettingsStore();
+  const { userIconPath, userIconPosX, userIconPosY, aiIconPath, aiIconPosX, aiIconPosY, aiModel, temperature, googleApiKey, openAiApiKey, anthropicApiKey, enableSystemIntegration, availableModels, fetchModels, apiTier, userGlobalContext } = useSettingsStore();
+
+  const isGoogle = (aiModel || '').includes('gemini');
+  const isOpenAI = (aiModel || '').includes('gpt');
+  const isAnthropic = (aiModel || '').includes('claude');
+
+  const getActiveApiKey = () => {
+    if (isGoogle) return googleApiKey;
+    if (isOpenAI) return openAiApiKey;
+    if (isAnthropic) return anthropicApiKey;
+    return googleApiKey;
+  };
+
+  const activeApiKey = getActiveApiKey();
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [personalities, setPersonalities] = useState([]);
@@ -156,6 +169,12 @@ const ChatPage = () => {
   const [isRoomSettingsOpen, setIsRoomSettingsOpen] = useState(false);
   const [tempRoomContext, setTempRoomContext] = useState('');
   const [tempMaxAutoReplies, setTempMaxAutoReplies] = useState(0);
+
+  // Audio / Voice State
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const recognitionRef = useRef(null);
 
   const activeChat = chats.find(c => c.id === activeChatId);
   const messages = activeChat?.messages || [];
@@ -237,6 +256,71 @@ const ChatPage = () => {
         .catch(err => console.error("Error fetching runtimes", err));
     }
   }, []);
+
+  // Inicializar Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'es-ES'; // Podría hacerse configurable después
+
+      recognition.onresult = (event) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setInputValue((prev) => prev + (prev ? ' ' : '') + finalTranscript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      alert("El reconocimiento de voz no está soportado en este navegador.");
+      return;
+    }
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      recognitionRef.current.start();
+      setIsRecording(true);
+    }
+  };
+
+  const speakText = (text) => {
+    if (!voiceModeEnabled || !text) return;
+    window.speechSynthesis.cancel(); // Detener anterior si hay
+    const cleanText = text.replace(/[*_#`]/g, '').trim(); // Limpiar markdown básico
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'es-ES'; // TODO: Configurable
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
 
   const handleDownloadCode = async (code, language) => {
     if (!isTauri) return;
@@ -488,7 +572,10 @@ const ChatPage = () => {
 
     const selectedPersonalityIdStr = selectedPersonalityId ? selectedPersonalityId.toString() : '';
     const selectedPersonality = personalities.find(p => p.id.toString() === selectedPersonalityIdStr);
-    const personalityPrompt = selectedPersonality ? selectedPersonality.instrucciones : '';
+    let personalityPrompt = selectedPersonality ? selectedPersonality.instrucciones : '';
+    if (userGlobalContext && userGlobalContext.trim() !== '') {
+      personalityPrompt += `\n\n--- Contexto Global del Usuario ---\n${userGlobalContext}`;
+    }
     const useSystemTools = enableSystemIntegration && selectedPersonality?.enable_system_tools;
 
     let groupPersonalities = [];
@@ -514,7 +601,8 @@ const ChatPage = () => {
       is_group_chat: activeChat?.isGroupChat || false,
       group_personalities: groupPersonalities,
       manual_target: activeChat?.manualTargetId || "",
-      room_context: activeChat?.roomContext || ""
+      room_context: activeChat?.roomContext || "",
+      project_context: activeChat?.projectContext || ""
     };
 
     try {
@@ -536,6 +624,12 @@ const ChatPage = () => {
           senderName: data.responder_name || ''
         };
         addMessage(activeChatId, aiMessage);
+        
+        // Reproducir voz si el modo está activado
+        if (voiceModeEnabled) {
+          speakText(data.response);
+        }
+
         if (data.total_tokens !== undefined) {
           updateChatTokens(activeChatId, data.total_tokens);
         }
@@ -879,7 +973,7 @@ const ChatPage = () => {
               type="button" 
               className={styles.attachButton} 
               onClick={handleAttachFiles}
-              disabled={!googleApiKey || isSending}
+              disabled={!activeApiKey || isSending}
               style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}
               title="Adjuntar archivo"
             >
@@ -889,15 +983,39 @@ const ChatPage = () => {
           <input
             type="text"
             className={styles.input}
-            placeholder={!googleApiKey ? "Configura tu API Key de Google en Ajustes..." : "Escribe tu mensaje..."}
+            placeholder={!activeApiKey ? "Configura tu API Key en Ajustes..." : "Escribe tu mensaje..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            disabled={!googleApiKey}
+            disabled={!activeApiKey}
           />
+          <button 
+            type="button" 
+            className={`${styles.voiceButton} ${isRecording ? styles.recording : ''}`}
+            onClick={toggleRecording}
+            style={{ background: 'transparent', border: 'none', color: isRecording ? '#ef4444' : '#9ca3af', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}
+            title={isRecording ? "Detener dictado" : "Dictado por voz"}
+          >
+            {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
+          </button>
+
+          <button 
+            type="button" 
+            onClick={() => {
+              if (isSpeaking) {
+                stopSpeaking();
+              }
+              setVoiceModeEnabled(!voiceModeEnabled);
+            }}
+            style={{ background: 'transparent', border: 'none', color: voiceModeEnabled ? '#10b981' : '#9ca3af', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}
+            title={voiceModeEnabled ? "Modo Voz Activado (Leer Respuestas)" : "Modo Voz Desactivado"}
+          >
+            {voiceModeEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+
           <button 
             type="submit" 
             className={styles.sendButton}
-            disabled={(!inputValue.trim() && attachments.length === 0) || !activeChatId || isSending || !googleApiKey}
+            disabled={(!inputValue.trim() && attachments.length === 0) || !activeChatId || isSending || !activeApiKey}
           >
             <Send size={20} />
           </button>
@@ -1025,3 +1143,4 @@ const ChatPage = () => {
 };
 
 export default ChatPage;
+

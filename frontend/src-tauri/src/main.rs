@@ -608,6 +608,8 @@ struct Historial {
     personality_ids: Option<Vec<String>>,
     room_context: Option<String>,
     max_auto_replies: Option<i32>,
+    project_id: Option<String>,
+    project_context: Option<String>,
 }
 
 #[tauri::command]
@@ -733,6 +735,8 @@ fn save_historial(app_handle: AppHandle, historial: Historial) -> Result<Histori
             p.personality_ids = new_hist.personality_ids.clone();
             p.room_context = new_hist.room_context.clone();
             p.max_auto_replies = new_hist.max_auto_replies;
+            p.project_id = new_hist.project_id.clone();
+            p.project_context = new_hist.project_context.clone();
             new_hist = p.clone();
         } else {
             return Err("Historial not found".into());
@@ -763,6 +767,46 @@ fn delete_historial(app_handle: AppHandle, id: i64) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct DiskInfo {
+    name: String,
+    total_space: u64,
+    available_space: u64,
+    file_system: String,
+    mount_point: String,
+}
+
+#[tauri::command]
+fn get_disk_usage() -> Vec<DiskInfo> {
+    use sysinfo::Disks;
+    let disks = Disks::new_with_refreshed_list();
+    let mut result = Vec::new();
+    for disk in disks.list() {
+        result.push(DiskInfo {
+            name: disk.name().to_string_lossy().into_owned(),
+            total_space: disk.total_space(),
+            available_space: disk.available_space(),
+            file_system: disk.file_system().to_string_lossy().into_owned(),
+            mount_point: disk.mount_point().to_string_lossy().into_owned(),
+        });
+    }
+    result
+}
+
+#[tauri::command]
+fn get_large_apps() -> Result<String, String> {
+    let output = std::process::Command::new("powershell")
+        .args(&[
+            "-NoProfile",
+            "-Command",
+            "Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Select-Object DisplayName, EstimatedSize | Where-Object { $_.EstimatedSize -gt 0 -and $_.DisplayName -ne $null } | Sort-Object EstimatedSize -Descending | Select-Object -First 20 | ConvertTo-Json"
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    String::from_utf8(output.stdout).map_err(|e| e.to_string())
 }
 
 fn main() {
@@ -844,7 +888,9 @@ fn main() {
             load_wsl_config,
             execute_wsl_code,
             open_wsl_cmd,
-            check_wsl_installed
+            check_wsl_installed,
+            get_disk_usage,
+            get_large_apps
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

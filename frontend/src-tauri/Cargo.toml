@@ -19,6 +19,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.8.1", features = [ "app-all", "process-relaunch", "updater", "dialog-all", "protocol-all", "fs-all", "path-all", "shell-sidecar" ] }
 chrono = "0.4"
+sysinfo = "0.30"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.

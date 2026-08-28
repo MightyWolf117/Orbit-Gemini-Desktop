@@ -99,7 +99,7 @@ function App() {
         <div className={`${styles.splashScreen} ${isFadingOut ? styles.fadeOut : ''}`}>
           <h1 className={styles.splashTitle}>Orbit</h1>
           <p className={styles.splashDisclaimer}>
-            Disclaimer: Orbit is an independent open-source project and is not affiliated with, sponsored, or endorsed by Google LLC.
+            Disclaimer: Orbit is an independent open-source project and is not affiliated with, sponsored, or endorsed by any AI provider.
           </p>
         </div>
       )}

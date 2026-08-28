@@ -1,4 +1,4 @@
-import { FileText, Bug, Zap, CheckCircle } from 'lucide-react';
+﻿import { FileText, Bug, Zap, CheckCircle } from 'lucide-react';
 import styles from './PatchNotesPage.module.scss';
 
 const PatchNotesPage = () => {
@@ -6,11 +6,30 @@ const PatchNotesPage = () => {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>Notas del Parche</h1>
-        <p className={styles.subtitle}>Versión actual: 1.2.1</p>
+        <p className={styles.subtitle}>Versión actual: 1.4.0</p>
       </header>
 
       <div className={styles.content}>
         <section className={styles.patchSection}>
+          <h2 className={styles.versionTitle}>
+            Versión 1.4.0 - Orbit (Hub Multi-Agente)
+          </h2>
+          <span className={styles.date}>27 de Agosto, 2026</span>
+          
+          <div className={styles.category}>
+            <h3 className={styles.categoryTitle} style={{ color: '#10b981' }}>
+              <Zap size={18} /> Renombre a Orbit y Multi-Proveedor
+            </h3>
+            <ul className={styles.list}>
+              <li><strong>Evolución de Identidad:</strong> "Gemini Desktop" es ahora <strong>Orbit</strong>, un hub integral para agentes de inteligencia artificial independiente de Google.</li>
+              <li><strong>Integración Multi-Modelo:</strong> Se integró soporte para guardar claves de OpenAI y Anthropic directamente desde la interfaz, volviendo al sistema agnóstico de proveedores.</li>
+              <li><strong>Organización y Proyectos:</strong> Ahora puedes agrupar tus historiales de chat por proyectos/carpetas desde la barra lateral.</li>
+              <li><strong>Interacciones de Voz Nativas:</strong> Se habilitó reconocimiento de voz (Speech-to-Text) y sintetizador (Text-to-Speech) nativos del sistema.</li>
+              <li><strong>Renderizado de Imágenes:</strong> Soporte nativo para renderizar imágenes generadas o devueltas por los agentes en formato URL/media directamente en el chat.</li>
+            </ul>
+          </div>
+        </section>
+<section className={styles.patchSection}>
           <h2 className={styles.versionTitle}>
             Versión 1.2.1 - Sistema Inteligente de Modelos, Cuotas y Tiers
           </h2>
@@ -106,3 +125,4 @@ const PatchNotesPage = () => {
 };
 
 export default PatchNotesPage;
+

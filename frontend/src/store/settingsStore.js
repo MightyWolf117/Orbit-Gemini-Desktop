@@ -24,6 +24,8 @@ const useSettingsStore = create(
 
       // Ajustes de API
       googleApiKey: null,
+      openAiApiKey: null,
+      anthropicApiKey: null,
       enableSystemIntegration: false,
       apiTier: 'free',
 
@@ -38,6 +40,9 @@ const useSettingsStore = create(
       // Ajustes de consola
       enableDevConsole: false,
       
+      // Contexto Global de Usuario
+      userGlobalContext: "",
+
       setTheme: (theme) => set({ theme }),
       setAiModel: (model) => set({ aiModel: model }),
       setTemperature: (temp) => set({ temperature: temp }),
@@ -46,7 +51,10 @@ const useSettingsStore = create(
       setResolvedBasePath: (path) => set({ resolvedBasePath: path }),
       setEnableWsl: (enabled) => set({ enableWsl: enabled }),
       setGoogleApiKey: (key) => set({ googleApiKey: key }),
+      setOpenAiApiKey: (key) => set({ openAiApiKey: key }),
+      setAnthropicApiKey: (key) => set({ anthropicApiKey: key }),
       setEnableSystemIntegration: (enabled) => set({ enableSystemIntegration: enabled }),
+      setUserGlobalContext: (context) => set({ userGlobalContext: context }),
       setApiTier: (tier) => {
         set({ apiTier: tier });
         get().fetchModels();
@@ -257,8 +265,14 @@ const useSettingsStore = create(
 
       resetSettings: () => set({
         theme: 'dark',
-        aiModel: 'gemini-pro',
+        aiModel: 'gemini-1.5-flash',
         temperature: 0.7,
+        googleApiKey: '',
+        openAiApiKey: '',
+        anthropicApiKey: '',
+        apiTier: 'free',
+        enableSystemIntegration: false,
+        userGlobalContext: '',
         bgBlur: 10,
         bgOpacity: 50,
         userIconPosX: 50,

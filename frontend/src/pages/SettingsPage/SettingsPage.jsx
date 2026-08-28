@@ -17,8 +17,8 @@ const SettingsPage = () => {
     bgBlur, bgOpacity, bgPath,
     userIconPath, userIconPosX, userIconPosY,
     aiIconPath, aiIconPosX, aiIconPosY,
-    basePath, resolvedBasePath, enableWsl, googleApiKey, enableSystemIntegration, enableDevConsole,
-    setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey, setEnableSystemIntegration, setEnableDevConsole,
+    basePath, resolvedBasePath, enableWsl, googleApiKey, openAiApiKey, anthropicApiKey, enableSystemIntegration, enableDevConsole, userGlobalContext,
+    setTheme, setAiModel, setTemperature, setBgSettings, setIconSettings, setBasePath, setEnableWsl, setGoogleApiKey, setOpenAiApiKey, setAnthropicApiKey, setEnableSystemIntegration, setEnableDevConsole, setUserGlobalContext,
     saveBgSettingsToBackend, saveIconSettingsToBackend, savePathConfigToBackend, loadPathConfigFromBackend, saveWslConfigToBackend, loadWslConfigFromBackend, saveApiConfigToBackend, resetSettings,
     availableModels, fetchModels, apiTier, setApiTier, resetModelsQuota
   } = useSettingsStore();
@@ -37,6 +37,19 @@ const SettingsPage = () => {
   const [apiKeyHelpModalOpen, setApiKeyHelpModalOpen] = useState(false);
   const [wslStatus, setWslStatus] = useState(null);
   const [installedRuntimes, setInstalledRuntimes] = useState(null);
+
+  const isGoogle = (aiModel || '').includes('gemini');
+  const isOpenAI = (aiModel || '').includes('gpt');
+  const isAnthropic = (aiModel || '').includes('claude');
+
+  const getActiveApiKey = () => {
+    if (isGoogle) return googleApiKey;
+    if (isOpenAI) return openAiApiKey;
+    if (isAnthropic) return anthropicApiKey;
+    return googleApiKey;
+  };
+
+  const activeApiKey = getActiveApiKey();
 
   const handleSystemIntegrationToggle = (checked) => {
     if (checked) {
@@ -198,9 +211,9 @@ const SettingsPage = () => {
       <div className={styles.content}>
         
         {/* API Key */}
-        <section className={styles.section} style={{ borderColor: !googleApiKey ? '#ef4444' : '#333' }}>
+        <section className={styles.section} style={{ borderColor: !activeApiKey ? '#ef4444' : '#333' }}>
           <h2 className={styles.sectionTitle} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            API Key de Google (Gemini)
+            API Keys de Proveedores
             <HelpCircle 
               size={18} 
               style={{ cursor: 'pointer', color: '#3b82f6' }} 
@@ -209,7 +222,7 @@ const SettingsPage = () => {
             />
           </h2>
           <div className={styles.formGroup}>
-            <label className={styles.label}>Ingresa tu API Key para poder chatear con la IA:</label>
+            <label className={styles.label}>API Key de Google Gemini {isGoogle ? '(Requerido para modelo actual)' : '(Opcional)'}:</label>
             <input 
               type="password" 
               className={styles.input} 
@@ -217,8 +230,33 @@ const SettingsPage = () => {
               onChange={(e) => setGoogleApiKey(e.target.value)}
               placeholder="AIzaSy..."
             />
-            {!googleApiKey && <div className={styles.helpText} style={{ color: '#ef4444' }}>⚠️ API Key requerida para chatear.</div>}
-            {googleApiKey && <div className={styles.helpText} style={{ color: '#10b981' }}>✓ API Key configurada.</div>}
+            {isGoogle && !googleApiKey && <div className={styles.helpText} style={{ color: '#ef4444' }}>⚠️ API Key de Google requerida.</div>}
+            {isGoogle && googleApiKey && <div className={styles.helpText} style={{ color: '#10b981' }}>✓ API Key configurada.</div>}
+            
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>API Key de OpenAI {isOpenAI ? '(Requerido para modelo actual)' : '(Opcional)'}:</label>
+            <input 
+              type="password" 
+              className={styles.input} 
+              value={openAiApiKey || ''}
+              onChange={(e) => setOpenAiApiKey(e.target.value)}
+              placeholder="sk-..."
+            />
+            {isOpenAI && !openAiApiKey && <div className={styles.helpText} style={{ color: '#ef4444', marginTop: '5px' }}>⚠️ API Key de OpenAI requerida.</div>}
+            {isOpenAI && openAiApiKey && <div className={styles.helpText} style={{ color: '#10b981', marginTop: '5px' }}>✓ API Key configurada.</div>}
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>API Key de Anthropic {isAnthropic ? '(Requerido para modelo actual)' : '(Opcional)'}:</label>
+            <input 
+              type="password" 
+              className={styles.input} 
+              value={anthropicApiKey || ''}
+              onChange={(e) => setAnthropicApiKey(e.target.value)}
+              placeholder="sk-ant-..."
+            />
+            {isAnthropic && !anthropicApiKey && <div className={styles.helpText} style={{ color: '#ef4444', marginTop: '5px' }}>⚠️ API Key de Anthropic requerida.</div>}
+            {isAnthropic && anthropicApiKey && <div className={styles.helpText} style={{ color: '#10b981', marginTop: '5px' }}>✓ API Key configurada.</div>}
           </div>
         </section>
 
@@ -275,6 +313,27 @@ const SettingsPage = () => {
                 </>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* Contexto Global del Usuario */}
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <User size={18} style={{marginRight: '8px', verticalAlign: 'middle'}}/>
+            Personalización Global
+          </h2>
+          <div className={styles.formGroup}>
+            <label className={styles.label}>Contexto sobre ti (opcional)</label>
+            <p className={styles.helpText} style={{ marginBottom: '8px' }}>
+              Este contexto se enviará silenciosamente a la IA en todos los chats para ayudarle a dar respuestas más personalizadas (ej. "Soy un desarrollador React", "Háblame de tú y de forma concisa").
+            </p>
+            <textarea
+              className={styles.input}
+              style={{ minHeight: '100px', resize: 'vertical' }}
+              placeholder="Escribe detalles sobre ti o cómo prefieres que la IA te responda..."
+              value={userGlobalContext || ''}
+              onChange={(e) => setUserGlobalContext(e.target.value)}
+            />
           </div>
         </section>
 
@@ -348,16 +407,28 @@ const SettingsPage = () => {
           <div className={styles.formGroup}>
             <label className={styles.label}>Modelo preferido</label>
             <select className={styles.select} value={aiModel} onChange={(e) => setAiModel(e.target.value)}>
-              {availableModels.length > 0 ? (
-                availableModels.map(m => (
-                  <option key={m.id} value={m.id}>{m.displayName} ({m.status})</option>
-                ))
-              ) : (
-                <>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido)</option>
-                </>
-              )}
+              <optgroup label="Google Gemini">
+                {availableModels.length > 0 ? (
+                  availableModels.map(m => (
+                    <option key={m.id} value={m.id}>{m.displayName} ({m.status})</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido)</option>
+                  </>
+                )}
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </optgroup>
+              <optgroup label="Anthropic">
+                <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet</option>
+                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+              </optgroup>
             </select>
           </div>
           <div className={styles.formGroup}>
@@ -757,7 +828,7 @@ const SettingsPage = () => {
           <li>Estado de los servicios activos de Windows.</li>
           <li>Información de red y ubicación aproximada (Ciudad/Localidad basada en IP, sin direcciones exactas ni datos de GPS).</li>
         </ul>
-        <p style={{ marginTop: '10px', color: '#ffcc00' }}><strong>Nota Importante:</strong> Aunque nuestra aplicación está diseñada para ser de solo lectura y no extraer contraseñas, la información recopilada será enviada temporalmente al modelo de Google (Gemini) para procesar tus respuestas. Asumes los riesgos relacionados con la ejecución de estas herramientas de IA.</p>
+        <p style={{ marginTop: '10px', color: '#ffcc00' }}><strong>Nota Importante:</strong> Aunque nuestra aplicación está diseñada para ser de solo lectura y no extraer contraseñas, la información recopilada será enviada temporalmente a los modelos de IA (ej: Google Gemini, OpenAI, Anthropic) para procesar tus respuestas. Asumes los riesgos relacionados con la ejecución de estas herramientas de IA.</p>
       </Modal>
 
       {/* Modal de Ayuda para API Key */}
@@ -769,7 +840,7 @@ const SettingsPage = () => {
       >
         <div style={{ color: '#d1d5db', lineHeight: '1.6' }}>
           <p style={{ marginBottom: '16px' }}>
-            Para usar esta aplicación, necesitas una clave de API gratuita de Google (Gemini). Sigue estos pasos:
+            Para usar esta aplicación, necesitas una clave de API de los proveedores soportados (ej: Google Gemini, OpenAI, Anthropic).
           </p>
           <ol style={{ marginLeft: '20px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <li>Ve a la página de <strong>Google AI Studio</strong>: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'none' }}>aistudio.google.com</a></li>
@@ -797,3 +868,6 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+
+
+

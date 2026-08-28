@@ -1,14 +1,7 @@
 # Orbit
-<<<<<<< HEAD
-A desktop client for the Gemini API. Custom personalities, persistent prompts, and desktop integration.
 
-Disclaimer: Orbit is an independent open-source project and is not affiliated with, sponsored, or endorsed by Google LLC.
-=======
+A desktop hub for AI Agents and APIs. Custom personalities, persistent prompts, projects grouping, and system-level tools integration.
 
-A desktop client for the Gemini API. Custom personalities, persistent prompts, and desktop integration.
+Support for multiple AI providers.
 
-Just need to generate a API KEY in google AI studio with the free tier an paste : https://aistudio.google.com/api-keys
-
-
-> **Disclaimer:** Orbit is an independent open-source project and is not affiliated with, sponsored, or endorsed by Google LLC.
->>>>>>> b0bb3f1ed07da234f762eba3c35d217fddfb74be
+> **Disclaimer:** Orbit is an independent open-source project and is not affiliated with, sponsored, or endorsed by any AI provider.
